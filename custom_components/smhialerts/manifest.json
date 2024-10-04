@@ -1,8 +1,8 @@
 {
-  "domain": "smhialert",
   "name": "SMHI Alert",
   "version": "1.0.5",
   "documentation": "https://github.com/Nicxe/home-assistant-smhialert",
+  "issue_tracker": "https://github.com/Nicxe/home-assistant-smhialert/issues",
   "requirements": [],
   "dependencies": [],
   "codeowners": ["@Nicxe"],
