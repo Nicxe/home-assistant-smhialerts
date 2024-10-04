@@ -1,0 +1,9 @@
+{
+    "name": "SMHI Alert",
+    "content_in_root": false,
+    "domain": "smhialert",
+    "iot_class": "Cloud Polling",
+    "homeassistant": "2021.6.0",
+    "render_readme": true
+  }
+  

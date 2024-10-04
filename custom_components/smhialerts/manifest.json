@@ -1,0 +1,11 @@
+{
+  "domain": "smhialert",
+  "name": "SMHI Alert",
+  "version": "1.0.5",
+  "documentation": "https://github.com/Nicxe/home-assistant-smhialert",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@Nicxe"],
+  "iot_class": "cloud_polling",
+  "homeassistant": "2021.6.0"
+}
