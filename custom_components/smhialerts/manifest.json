@@ -1,4 +1,5 @@
 {
+  "domain": "smhi_alert",
   "name": "SMHI Alert",
   "version": "1.0.5",
   "documentation": "https://github.com/Nicxe/home-assistant-smhialert",
