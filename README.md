@@ -1,8 +1,8 @@
-# Home Assistant - SMHI (Swedish Meteorological and Hydrological Institute) Weather Warnings & Alerts
+# Home Assistant - SMHI Weather Warnings & Alerts
 
 ## Overview
 
-Easily receive and manage SMHI weather warnings and alerts directly in Home Assistant, enabling you to trigger actions or display information on your dashboard.
+Easily receive and manage SMHI (Swedish Meteorological and Hydrological Institute) weather warnings and alerts directly in Home Assistant, enabling you to trigger actions or display information on your dashboard.
 
 There is also a dashboard card specifically for this integration, which can be found here: [SMHI Alert Card](https://github.com/Nicxe/home-assistant-smhialert-card)
 
@@ -13,7 +13,24 @@ This custom component connects to SMHI's open API to retrieve weather alerts in 
 
 ## Installation
 
-You can install this custom component using HACS as a custom repository by following this link: [HACS Custom Repositories Guide](https://www.hacs.xyz/docs/faq/custom_repositories/?h=custom+repositories).
+You can install this custom component using [HACS](https://www.hacs.xyz/) as a custom repository by following this guide:
+
+1. Click on the 3 dots in the top right corner of the HACS overview menu.
+2. Select "Custom repositories".
+3. Add the URL to the repository: ```https://github.com/Nicxe/home-assistant-smhialerts```
+4. Select type: Integratin
+5. Click the "ADD" button.
+
+
+<details>
+
+<summary>**Manual Installation** *(without HACS)*</summary>
+1. Download the latest release of the SMHI Alert integration from [GitHub Releases](https://github.com/Nicxe/home-assistant-smhialerts/releases).
+2. Extract the downloaded files and place the smhialert folder in your Home Assistant custom_components directory (usually located in the config/custom_components directory).
+3. Restart your Home Assistant instance to load the new integration.
+
+</details>
+
 
 ## Example Configuration
 
