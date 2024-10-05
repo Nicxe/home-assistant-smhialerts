@@ -4,9 +4,12 @@
 
 Easily receive and manage SMHI weather warnings and alerts directly in Home Assistant, enabling you to trigger actions or display information on your dashboard.
 
+There is also a dashboard card specifically for this integration, which can be found here: [SMHI Alert Card](https://github.com/Nicxe/home-assistant-smhialert-card)
+
 This custom component connects to SMHI's open API to retrieve weather alerts in Sweden, organizing the data by districts and their respective messages. You can choose to receive notifications for all districts or for a specific one.
 
-*Based on [https://github.com/Lallassu/smhialert](https://github.com/Lallassu/smhialert)*
+
+*Based on [SMHI Alert Card](https://github.com/Lallassu/smhialert)*
 
 ## Installation
 
@@ -77,3 +80,8 @@ Available districts:
 57  Skagerrak  
 58  Vänern  
 ```
+
+## Usage Screenshots
+Using the [SMHI Alert Card](https://github.com/Nicxe/home-assistant-smhialert-card)
+
+<img src="https://github.com/Nicxe/home-assistant-smhialert-card/blob/main/Screenshot.png">
