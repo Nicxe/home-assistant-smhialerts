@@ -4,5 +4,6 @@
   "version": "1.0.1",
   "documentation": "https://github.com/Nicxe/home-assistant-smhialert",
   "issue_tracker": "https://github.com/Nicxe/home-assistant-smhialert/issues",
-  "codeowners": ["@Nicxe"]
+  "codeowners": ["@Nicxe"],
+  "iot_class": "cloud_polling"
 }
