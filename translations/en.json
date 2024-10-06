@@ -1,0 +1,32 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "Configure SMHI Alert",
+          "data": {
+            "district": "District",
+            "language": "Language"
+          }
+        }
+      },
+      "error": {
+        "cannot_connect": "Failed to connect",
+        "invalid_district": "Invalid district"
+      },
+      "abort": {
+        "already_configured": "Integration is already configured."
+      }
+    },
+    "options": {
+      "step": {
+        "init": {
+          "title": "SMHI Alert Options",
+          "data": {
+            "district": "District",
+            "language": "Language"
+          }
+        }
+      }
+    }
+  }
+  

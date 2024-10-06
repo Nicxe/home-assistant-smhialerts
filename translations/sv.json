@@ -1,0 +1,32 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "Konfigurera SMHI Alert",
+          "data": {
+            "district": "Distrikt",
+            "language": "Språk"
+          }
+        }
+      },
+      "error": {
+        "cannot_connect": "Misslyckades att ansluta",
+        "invalid_district": "Ogiltigt distrikt"
+      },
+      "abort": {
+        "already_configured": "Integrationen är redan konfigurerad."
+      }
+    },
+    "options": {
+      "step": {
+        "init": {
+          "title": "SMHI Alert Alternativ",
+          "data": {
+            "district": "Distrikt",
+            "language": "Språk"
+          }
+        }
+      }
+    }
+  }
+  
