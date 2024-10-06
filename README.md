@@ -40,7 +40,7 @@ Add the following to your `configuration.yaml` file in Home Assistant:
 
 ```yaml
 sensor:
-  - platform: smhialert
+  - platform: smhi_alerts
     district: 'all'
     language: 'sv'
 ```
@@ -49,7 +49,7 @@ sensor:
 
 ```yaml
 sensor:
-  - platform: smhialert
+  - platform: smhi_alerts
     district: '9'
 ```
 
