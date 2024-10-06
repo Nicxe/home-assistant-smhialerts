@@ -1,71 +1,48 @@
-"""
-Get weather alerts and warnings from SMHI.
-
-Example configuration:
-
-sensor:
-  - platform: smhialert
-    district: 'all'
-
-Or specifying a specific district:
-
-sensor:
-  - platform: smhialert
-    district: '19'
-    language: 'sv'
-
-Available districts: See README.md
-"""
-
 import logging
-from datetime import timedelta
-
-import aiohttp
 import async_timeout
-import voluptuous as vol
-
-from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
-from homeassistant.const import CONF_NAME
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
-import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.util import Throttle
-
-__version__ = '1.0.5'
+from homeassistant.helpers.update_coordinator import (
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers import aiohttp_client
+from .const import (
+    DOMAIN,
+    CONF_DISTRICT,
+    CONF_LANGUAGE,
+    DEFAULT_NAME,
+    SCAN_INTERVAL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-NAME = 'SMHIAlert'
-CONF_DISTRICT = 'district'
-CONF_LANGUAGE = 'language'
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+    """Set up the sensor platform."""
+    coordinator = SmhiAlertCoordinator(hass, entry)
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception as ex:
+        _LOGGER.error("Failed to fetch initial data: %s", ex)
+        return False  # Indikerar att setup misslyckades
 
-SCAN_INTERVAL = timedelta(minutes=5)
-
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Optional(CONF_NAME, default=NAME): cv.string,
-    vol.Optional(CONF_DISTRICT, default='all'): cv.string,
-    vol.Optional(CONF_LANGUAGE, default='en'): cv.string
-})
-
-
-async def async_setup_platform(hass: HomeAssistant, config, async_add_entities, discovery_info=None):
-    """Set up the SMHI Alert sensor platform."""
-    district = config.get(CONF_DISTRICT)
-    language = config.get(CONF_LANGUAGE)
-    name = config.get(CONF_NAME)
-    session = async_get_clientsession(hass)
-    api = SMHIAlert(district, language, session)
-
-    async_add_entities([SMHIAlertSensor(api, name)], True)
-
+    async_add_entities([SMHIAlertSensor(coordinator, entry)], True)
+    return True
 
 class SMHIAlertSensor(SensorEntity):
     """Representation of the SMHI Alert sensor."""
 
-    def __init__(self, api, name):
-        self._api = api
-        self._name = name
+    def __init__(self, coordinator, entry):
+        self.coordinator = coordinator
+        self.entry = entry  # Spara config_entry för senare användning
+        self._name = DEFAULT_NAME
         self._icon = "mdi:alert"
+
+    @property
+    def unique_id(self):
+        """Return a unique ID to identify this sensor."""
+        return f"{self.entry.entry_id}_smhi_alert_sensor"
 
     @property
     def name(self):
@@ -80,70 +57,98 @@ class SMHIAlertSensor(SensorEntity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._api.data.get('state')
+        return self.coordinator.data.get('state')
 
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
-        return self._api.attributes
+        return self.coordinator.data.get('attributes')
 
     @property
     def available(self):
         """Return True if sensor is available."""
-        return self._api.available
+        return self.coordinator.last_update_success
 
-    async def async_update(self):
-        """Fetch new state data for the sensor."""
-        await self._api.async_update()
+    @property
+    def should_poll(self):
+        """No need to poll, coordinator notifies entity of updates."""
+        return False
 
-
-class SMHIAlert:
-    """Class to handle data fetching from SMHI."""
-
-    def __init__(self, district, language, session):
-        self.district = district
-        self.language = language
-        self.session = session
-        self.attributes = {
-            "messages": [],
-            "notice": ""
+    @property
+    def device_info(self):
+        """Return device information about this entity."""
+        return {
+            "identifiers": {(DOMAIN, self.entry.entry_id)},
+            "name": "SMHI Alert",
+            "manufacturer": "SMHI",
+            "entry_type": "service",
         }
-        self.data = {
-            'state': "No Alerts" if language == 'en' else "Inga varningar"
-        }
+
+    async def async_added_to_hass(self):
+        """When entity is added to hass."""
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
+
+class SmhiAlertCoordinator(DataUpdateCoordinator):
+    """Class to manage fetching data from SMHI."""
+
+    def __init__(self, hass, entry):
+        """Initialize."""
+        self.hass = hass
+        self.entry = entry
+        self.district = entry.data.get(CONF_DISTRICT)
+        self.language = entry.data.get(CONF_LANGUAGE)
+        self.session = aiohttp_client.async_get_clientsession(hass)
         self.available = True
 
-    @Throttle(SCAN_INTERVAL)
-    async def async_update(self):
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="SMHI Alert",
+            update_interval=SCAN_INTERVAL,
+        )
+
+    async def _async_update_data(self):
         """Fetch data from SMHI."""
         url = 'https://opendata-download-warnings.smhi.se/ibww/api/version/1/warning.json'
+
+        data = {
+            'state': "No Alerts" if self.language == 'en' else "Inga varningar",
+            'attributes': {
+                "messages": [],
+                "notice": ""
+            }
+        }
+
         try:
             async with async_timeout.timeout(10):
                 async with self.session.get(url) as response:
                     if response.status != 200:
-                        _LOGGER.error("Error fetching data from SMHI: %s", response.status)
-                        self.available = False
-                        return
-                    data = await response.json()
+                        raise UpdateFailed(f"Error fetching data: {response.status}")
+                    json_data = await response.json()
 
-            self._process_data(data)
+            messages, notice = self._process_data(json_data)
+
+            if messages:
+                data['state'] = "Alert" if self.language == 'en' else "Varning"
+                data['attributes']['messages'] = messages
+                data['attributes']['notice'] = notice
+
             self.available = True
+            return data
+
         except Exception as e:
-            _LOGGER.error("Unable to fetch data from SMHI: %s", e)
             self.available = False
+            raise UpdateFailed(f"Error updating data: {e}") from e
 
     def _process_data(self, data):
         """Process the data received from SMHI."""
         messages = []
         notice = ""
 
-        # Reset state and attributes
-        self.data['state'] = "No Alerts" if self.language == 'en' else "Inga varningar"
-        self.attributes['messages'] = []
-        self.attributes['notice'] = ""
-
         if not data:
-            return
+            return messages, notice
 
         for alert in data:
             event = alert.get('event', {}).get(self.language, '')
@@ -196,10 +201,7 @@ class SMHIAlert:
                 messages.append(msg)
                 notice += self._format_notice(msg)
 
-        if messages:
-            self.data['state'] = "Alert" if self.language == 'en' else "Varning"
-            self.attributes['messages'] = messages
-            self.attributes['notice'] = notice
+        return messages, notice
 
     def _get_event_color(self, code):
         """Return color code based on severity code."""
