@@ -16,6 +16,10 @@ You can install this integration as a custom repository by following one of thes
 
 ### With HACS (Recommended)
 
+To install the custom component in HACS use this button:
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Nicxe&repository=home-assistant-smhialerts&category=integration)
+
 1. Click on the three dots in the top right corner of the HACS overview menu.
 2. Select **Custom repositories**.
 3. Add the URL to the repository: `https://github.com/Nicxe/home-assistant-smhialerts`.
