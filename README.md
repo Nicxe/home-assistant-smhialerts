@@ -43,6 +43,10 @@ To add the integration to your Home Assistant instance, use this button:
     </a>
 </p>
 
+
+**Selecting all districts is not recommended as it may generate too much data, causing performance issues and preventing proper data storage.**
+
+
 ### Manual Configuration
 
 If the above My button doesn’t work, you can also perform the following steps manually:
@@ -96,7 +100,7 @@ If the above My button doesn’t work, you can also perform the following steps 
 56  Kattegatt
 57  Skagerrak
 58  Vänern
-all Alla distrikt
+all Alla district (Not recommended)
 ```
 
 ## Usage Screenshots
