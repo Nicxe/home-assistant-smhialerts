@@ -43,8 +43,8 @@ To add the integration to your Home Assistant instance, use this button:
     </a>
 </p>
 
-
-**Selecting all districts is not recommended as it may generate too much data, causing performance issues and preventing proper data storage.**
+> [!WARNING]
+> It is not recommended to select all districts as this may lead to the following error: The sensor can generate a large amount of data if all districts are selected, which may exceed the system's storage limits. This can lead to performance issues and cause the data to not be stored properly, potentially resulting in incomplete information.. This can cause database performance issues; attributes will not be stored.
 
 
 ### Manual Configuration
