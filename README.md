@@ -35,16 +35,16 @@ To install the custom component in HACS use this button:
 
 ## Configuration
 
-To add the integration to your Home Assistant instance, use this button:
+To add the integration to your Home Assistant instance, use the button below
+
+> [!WARNING]
+> It is not recommended to select all districts as this may lead to the sensor to generate a large amount of data if all districts are selected, which may exceed the system's storage limits. This can lead to performance issues and cause the data to not be stored properly, potentially resulting in incomplete information.. This can cause database performance issues; attributes will not be stored.
 
 <p>
     <a href="https://my.home-assistant.io/redirect/config_flow_start?domain=smhi_alerts" class="my badge" target="_blank">
         <img src="https://my.home-assistant.io/badges/config_flow_start.svg">
     </a>
 </p>
-
-> [!WARNING]
-> It is not recommended to select all districts as this may lead to the sensor to generate a large amount of data if all districts are selected, which may exceed the system's storage limits. This can lead to performance issues and cause the data to not be stored properly, potentially resulting in incomplete information.. This can cause database performance issues; attributes will not be stored.
 
 
 ### Manual Configuration
