@@ -8,6 +8,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers.entity import DeviceEntryType  # Importera DeviceEntryType
 from .const import (
     DOMAIN,
     CONF_DISTRICT,
@@ -81,7 +82,7 @@ class SMHIAlertSensor(SensorEntity):
             "identifiers": {(DOMAIN, self.entry.entry_id)},
             "name": "SMHI Alert",
             "manufacturer": "SMHI",
-            "entry_type": "service",
+            "entry_type": DeviceEntryType.SERVICE,  # Använd DeviceEntryType istället för sträng
         }
 
     async def async_added_to_hass(self):
