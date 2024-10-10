@@ -13,20 +13,20 @@
                     "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
                 }
             }
-        },
-        "options": {
-            "step": {
-                "init": {
-                    "title": "SMHI Alert-alternativ",
-                    "description": "Uppdatera SMHI Alert-alternativ.",
-                    "data": {
-                        "district": "Distrikt",
-                        "language": "Språk",
-                        "include_messages": "Visa meddelanden"
-                    },
-                    "data_description": {
-                        "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
-                    }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "SMHI Alert-alternativ",
+                "description": "Uppdatera SMHI Alert-alternativ.",
+                "data": {
+                    "district": "Distrikt",
+                    "language": "Språk",
+                    "include_messages": "Visa meddelanden"
+                },
+                "data_description": {
+                    "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
                 }
             }
         }

@@ -13,20 +13,20 @@
                     "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
                 }
             }
-        },
-        "options": {
-            "step": {
-                "init": {
-                    "title": "SMHI Alert Options",
-                    "description": "Update SMHI Alert options.",
-                    "data": {
-                        "district": "District",
-                        "language": "Language",
-                        "include_messages": "Show messages"
-                    },
-                    "data_description": {
-                        "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
-                    }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "SMHI Alert Options",
+                "description": "Update SMHI Alert options.",
+                "data": {
+                    "district": "District",
+                    "language": "Language",
+                    "include_messages": "Show messages"
+                },
+                "data_description": {
+                    "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
                 }
             }
         }
