@@ -8,13 +8,17 @@ from homeassistant.helpers.update_coordinator import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import aiohttp_client
-from homeassistant.helpers.entity import DeviceEntryType  # Importera DeviceEntryType
+from homeassistant.helpers.device_registry import DeviceEntryType
 from .const import (
     DOMAIN,
     CONF_DISTRICT,
     CONF_LANGUAGE,
+    CONF_INCLUDE_MESSAGES,
     DEFAULT_NAME,
     SCAN_INTERVAL,
+    DISTRICTS,
+    DEFAULT_LANGUAGE,
+    DEFAULT_INCLUDE_MESSAGES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,24 +30,50 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         await coordinator.async_config_entry_first_refresh()
     except Exception as ex:
         _LOGGER.error("Failed to fetch initial data: %s", ex)
-        return False  # Indikerar att setup misslyckades
+        return False  # Indicates that setup failed
 
-    async_add_entities([SMHIAlertSensor(coordinator, entry)], True)
+    sensor = SMHIAlertSensor(coordinator, entry)
+    async_add_entities([sensor], True)
+
+    # Save coordinator for update listener
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
+
+    # Register listener for options update
+    entry.add_update_listener(async_options_updated)
     return True
+
+async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry):
+    """Handle options update."""
+    _LOGGER.debug("Options updated, refreshing coordinator")
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    # Update coordinator configuration
+    coordinator.district = entry.options.get(
+        CONF_DISTRICT, entry.data.get(CONF_DISTRICT, "all")
+    )
+    coordinator.language = entry.options.get(
+        CONF_LANGUAGE, entry.data.get(CONF_LANGUAGE, DEFAULT_LANGUAGE)
+    )
+    coordinator.include_messages = entry.options.get(
+        CONF_INCLUDE_MESSAGES, entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES)
+    )
+    await coordinator.async_request_refresh()
 
 class SMHIAlertSensor(SensorEntity):
     """Representation of the SMHI Alert sensor."""
 
     def __init__(self, coordinator, entry):
         self.coordinator = coordinator
-        self.entry = entry  # Spara config_entry för senare användning
-        self._name = DEFAULT_NAME
+        self.entry = entry  # Store config_entry for later use
+        self.district = coordinator.district
+        self.language = coordinator.language
+        self._name = f"{DEFAULT_NAME} ({DISTRICTS.get(self.district, self.district)})"
         self._icon = "mdi:alert"
 
     @property
     def unique_id(self):
         """Return a unique ID to identify this sensor."""
-        return f"{self.entry.entry_id}_smhi_alert_sensor"
+        return f"{self.entry.entry_id}_smhi_alert_sensor_{self.district}"
 
     @property
     def name(self):
@@ -56,7 +86,7 @@ class SMHIAlertSensor(SensorEntity):
         return self._icon
 
     @property
-    def state(self):
+    def native_value(self):
         """Return the state of the sensor."""
         return self.coordinator.data.get('state')
 
@@ -80,9 +110,9 @@ class SMHIAlertSensor(SensorEntity):
         """Return device information about this entity."""
         return {
             "identifiers": {(DOMAIN, self.entry.entry_id)},
-            "name": "SMHI Alert",
+            "name": self._name,
             "manufacturer": "SMHI",
-            "entry_type": DeviceEntryType.SERVICE,  # Använd DeviceEntryType istället för sträng
+            "entry_type": DeviceEntryType.SERVICE,
         }
 
     async def async_added_to_hass(self):
@@ -98,15 +128,22 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         """Initialize."""
         self.hass = hass
         self.entry = entry
-        self.district = entry.data.get(CONF_DISTRICT)
-        self.language = entry.data.get(CONF_LANGUAGE)
+        self.district = entry.options.get(
+            CONF_DISTRICT, entry.data.get(CONF_DISTRICT, "all")
+        )
+        self.language = entry.options.get(
+            CONF_LANGUAGE, entry.data.get(CONF_LANGUAGE, DEFAULT_LANGUAGE)
+        )
+        self.include_messages = entry.options.get(
+            CONF_INCLUDE_MESSAGES, entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES)
+        )
         self.session = aiohttp_client.async_get_clientsession(hass)
         self.available = True
 
         super().__init__(
             hass,
             _LOGGER,
-            name="SMHI Alert",
+            name=f"SMHI Alert ({DISTRICTS.get(self.district, self.district)})",
             update_interval=SCAN_INTERVAL,
         )
 
@@ -172,6 +209,10 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 severity = severity_info.get(self.language, '')
                 level = severity
 
+                # Check if code is MESSAGE and include_messages is False
+                if code == 'MESSAGE' and not self.include_messages:
+                    continue  # Skip this message
+
                 descr = area.get('eventDescription', {}).get(self.language, '')
                 start_time = area.get('approximateStart', '')
                 end_time = area.get('approximateEnd', '')
@@ -209,7 +250,8 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         code_map = {
             "RED": "#FF0000",
             "ORANGE": "#FF7F00",
-            "YELLOW": "#FFFF00"
+            "YELLOW": "#FFFF00",
+            "MESSAGE": "#FFFFFF",
         }
         return code_map.get(code, "#FFFFFF")
 

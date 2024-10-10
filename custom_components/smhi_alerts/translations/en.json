@@ -1,32 +1,34 @@
 {
     "config": {
-      "step": {
-        "user": {
-          "title": "Configure SMHI Alert",
-          "data": {
-            "district": "District",
-            "language": "Language"
-          }
+        "step": {
+            "user": {
+                "title": "SMHI Alert",
+                "description": "Configure the SMHI Alert integration.",
+                "data": {
+                    "district": "District",
+                    "language": "Language",
+                    "include_messages": "Show messages"
+                },
+                "data_description": {
+                    "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
+                }
+            }
+        },
+        "options": {
+            "step": {
+                "init": {
+                    "title": "SMHI Alert Options",
+                    "description": "Update SMHI Alert options.",
+                    "data": {
+                        "district": "District",
+                        "language": "Language",
+                        "include_messages": "Show messages"
+                    },
+                    "data_description": {
+                        "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
+                    }
+                }
+            }
         }
-      },
-      "error": {
-        "cannot_connect": "Failed to connect",
-        "invalid_district": "Invalid district"
-      },
-      "abort": {
-        "already_configured": "Integration is already configured."
-      }
-    },
-    "options": {
-      "step": {
-        "init": {
-          "title": "SMHI Alert Options",
-          "data": {
-            "district": "District",
-            "language": "Language"
-          }
-        }
-      }
     }
-  }
-  
+}

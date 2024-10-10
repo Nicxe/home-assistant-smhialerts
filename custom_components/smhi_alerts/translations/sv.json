@@ -1,32 +1,34 @@
 {
     "config": {
-      "step": {
-        "user": {
-          "title": "Konfigurera SMHI Alert",
-          "data": {
-            "district": "Distrikt",
-            "language": "Språk"
-          }
+        "step": {
+            "user": {
+                "title": "SMHI Alert",
+                "description": "Konfigurera SMHI Alert-integrationen.",
+                "data": {
+                    "district": "Distrikt",
+                    "language": "Språk",
+                    "include_messages": "Visa meddelanden"
+                },
+                "data_description": {
+                    "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
+                }
+            }
+        },
+        "options": {
+            "step": {
+                "init": {
+                    "title": "SMHI Alert-alternativ",
+                    "description": "Uppdatera SMHI Alert-alternativ.",
+                    "data": {
+                        "district": "Distrikt",
+                        "language": "Språk",
+                        "include_messages": "Visa meddelanden"
+                    },
+                    "data_description": {
+                        "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
+                    }
+                }
+            }
         }
-      },
-      "error": {
-        "cannot_connect": "Misslyckades att ansluta",
-        "invalid_district": "Ogiltigt distrikt"
-      },
-      "abort": {
-        "already_configured": "Integrationen är redan konfigurerad."
-      }
-    },
-    "options": {
-      "step": {
-        "init": {
-          "title": "SMHI Alert Alternativ",
-          "data": {
-            "district": "Distrikt",
-            "language": "Språk"
-          }
-        }
-      }
     }
-  }
-  
+}
