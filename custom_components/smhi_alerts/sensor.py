@@ -37,10 +37,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     # Save coordinator for update listener
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
 
-    # Register listener for options update
-    entry.add_update_listener(async_options_updated)
+    # Register listener for options update and store unsubscribe callback
+    update_listener = entry.add_update_listener(async_options_updated)
+
+    hass.data[DOMAIN][entry.entry_id] = {
+        "coordinator": coordinator,
+        "update_listener": update_listener,
+    }
+
     return True
 
 async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry):
