@@ -4,7 +4,9 @@ from homeassistant.exceptions import ConfigEntryNotReady
 import homeassistant.helpers.config_validation as cv
 from .const import DOMAIN
 
-# Importera sensorplattformen för att undvika blockeringar
+# Import the sensor platform so Home Assistant registers it before
+# forward_entry_setups is called. This avoids potential setup blocking
+# when the integration forwards the config entry to the sensor platform.
 from . import sensor
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -19,7 +21,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data.setdefault(DOMAIN, {})
 
     try:
-        # Använd rätt metod och undvik blockering genom att ha importerat sensorplattformen
+        # Forward the config entry to the sensor platform. The import above
+        # ensures the platform is registered and prevents setup from blocking.
         await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
     except Exception as ex:
         raise ConfigEntryNotReady from ex
