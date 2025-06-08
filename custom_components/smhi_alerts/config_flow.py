@@ -1,5 +1,4 @@
 from homeassistant import config_entries
-from homeassistant.core import callback
 import voluptuous as vol
 from .const import (
     DOMAIN,
@@ -67,12 +66,15 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     @staticmethod
-    @callback
     def async_get_options_flow(config_entry):
-        return SmhiAlertsOptionsFlowHandler
+        return SmhiAlertsOptionsFlowHandler(config_entry)
 
 class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle SMHI Alerts options."""
+
+    def __init__(self, config_entry):
+        """Initialize SMHI Alerts options flow."""
+        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
