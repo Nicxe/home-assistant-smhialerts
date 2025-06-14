@@ -14,6 +14,7 @@ from .const import (
 from homeassistant.helpers.selector import selector
 import homeassistant.helpers.config_validation as cv
 
+
 class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SMHI Alerts."""
 
@@ -25,15 +26,18 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             district = user_input[CONF_DISTRICT]
 
-            # Tillåt flera instanser utan unika ID
-            return self.async_create_entry(title=f"SMHI Alert ({DISTRICTS.get(district, district)})", data=user_input)
+            # Allow multiple instances without unique IDs
+            return self.async_create_entry(
+                title=f"SMHI Alert ({DISTRICTS.get(district, district)})",
+                data=user_input,
+            )
 
-        # Förbered val för distrikt
+        # Prepare district options
         district_options = [
             {"label": name, "value": number} for number, name in DISTRICTS.items()
         ]
 
-        # Förbered val för språk
+        # Prepare language options
         language_options = [
             {"label": name, "value": code} for code, name in LANGUAGE_OPTIONS.items()
         ]
@@ -56,7 +60,9 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         }
                     }
                 ),
-                vol.Required(CONF_INCLUDE_MESSAGES, default=DEFAULT_INCLUDE_MESSAGES): cv.boolean,
+                vol.Required(
+                    CONF_INCLUDE_MESSAGES, default=DEFAULT_INCLUDE_MESSAGES
+                ): cv.boolean,
             }
         )
 
@@ -70,6 +76,7 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry):
         return SmhiAlertsOptionsFlowHandler()
+
 
 class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle SMHI Alerts options."""
@@ -106,7 +113,8 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_LANGUAGE,
                     default=self.config_entry.options.get(
-                        CONF_LANGUAGE, self.config_entry.data.get(CONF_LANGUAGE, DEFAULT_LANGUAGE)
+                        CONF_LANGUAGE,
+                        self.config_entry.data.get(CONF_LANGUAGE, DEFAULT_LANGUAGE),
                     ),
                 ): selector(
                     {
@@ -120,7 +128,9 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_INCLUDE_MESSAGES,
                     default=self.config_entry.options.get(
                         CONF_INCLUDE_MESSAGES,
-                        self.config_entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+                        self.config_entry.data.get(
+                            CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES
+                        ),
                     ),
                 ): cv.boolean,
             }

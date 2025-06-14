@@ -3,12 +3,9 @@ from datetime import timedelta
 DOMAIN = "smhi_alerts"
 CONF_DISTRICT = "district"
 CONF_LANGUAGE = "language"
-CONF_INCLUDE_MESSAGES = "include_messages"  # Nytt konfigurationsalternativ
+CONF_INCLUDE_MESSAGES = "include_messages"  # New configuration option
 LANGUAGES = ["en", "sv"]
-LANGUAGE_OPTIONS = {
-    "en": "Engelska",
-    "sv": "Svenska"
-}
+LANGUAGE_OPTIONS = {"en": "Engelska", "sv": "Svenska"}
 DEFAULT_NAME = "SMHI Alert"
 DEFAULT_DISTRICT = "all"
 DEFAULT_LANGUAGE = "sv"
@@ -55,5 +52,5 @@ DISTRICTS = {
     "56": "Kattegatt",
     "57": "Skagerrak",
     "58": "Vänern",
-    "all": "Alla distrikt (Ej rekommenderat)"
+    "all": "Alla distrikt (Ej rekommenderat)",
 }
