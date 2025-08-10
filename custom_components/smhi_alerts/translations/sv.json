@@ -12,6 +12,18 @@
                 "data_description": {
                     "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
                 }
+            },
+            "reconfigure": {
+                "title": "Omkonfigurera SMHI Alert",
+                "description": "Uppdatera konfigurationen för denna SMHI Alert-post.",
+                "data": {
+                    "district": "Distrikt",
+                    "language": "Språk",
+                    "include_messages": "Visa meddelanden"
+                },
+                "data_description": {
+                    "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
+                }
             }
         }
     },

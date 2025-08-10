@@ -1,5 +1,6 @@
 import logging
 import asyncio
+from typing import Any, Dict, List, Tuple
 from aiohttp import ClientError
 import async_timeout
 from homeassistant.components.sensor import SensorEntity
@@ -12,6 +13,7 @@ from homeassistant.helpers.update_coordinator import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.device_registry import DeviceEntryType
+from homeassistant.util import dt as dt_util
 from .const import (
     DOMAIN,
     CONF_DISTRICT,
@@ -22,6 +24,8 @@ from .const import (
     DISTRICTS,
     DEFAULT_LANGUAGE,
     DEFAULT_INCLUDE_MESSAGES,
+    WARNINGS_URL,
+    SEVERITY_ORDER,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,26 +35,17 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ):
     """Set up the sensor platform."""
-    coordinator = SmhiAlertCoordinator(hass, entry)
+    # Reuse coordinator created in __init__
     try:
-        await coordinator.async_config_entry_first_refresh()
-    except Exception as ex:
-        _LOGGER.error("Failed to fetch initial data: %s", ex)
-        return False  # Indicates that setup failed
+        coordinator: SmhiAlertCoordinator = hass.data[DOMAIN][entry.entry_id][
+            "coordinator"
+        ]
+    except KeyError:
+        _LOGGER.error("Failed to fetch initial data: coordinator not initialized")
+        return False
 
     sensor = SMHIAlertSensor(coordinator, entry)
     async_add_entities([sensor], True)
-
-    # Save coordinator for update listener
-    hass.data.setdefault(DOMAIN, {})
-
-    # Register listener for options update and store unsubscribe callback
-    update_listener = entry.add_update_listener(async_options_updated)
-
-    hass.data[DOMAIN][entry.entry_id] = {
-        "coordinator": coordinator,
-        "update_listener": update_listener,
-    }
 
     return True
 
@@ -101,11 +96,16 @@ class SMHIAlertSensor(CoordinatorEntity, SensorEntity):
     def extra_state_attributes(self):
         return self.coordinator.data.get("attributes")
 
+    @property
+    def name(self) -> str:
+        # Reflect updated district name if options change
+        return f"{DEFAULT_NAME} ({DISTRICTS.get(self.coordinator.district, self.coordinator.district)})"
+
 
 class SmhiAlertCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from SMHI."""
 
-    def __init__(self, hass, entry):
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         """Initialize."""
         self.hass = hass
         self.entry = entry
@@ -120,107 +120,192 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
         )
         self.session = aiohttp_client.async_get_clientsession(hass)
-        self.available = True
+        self._etag: str | None = None
+        self._last_modified: str | None = None
+        self._last_success: str | None = None
+        self._failure_count: int = 0
+        self._base_interval = SCAN_INTERVAL
 
         super().__init__(
             hass,
             _LOGGER,
             name=f"SMHI Alert ({DISTRICTS.get(self.district, self.district)})",
             update_interval=SCAN_INTERVAL,
+            config_entry=entry,
         )
 
-    async def _async_update_data(self):
-        """Fetch data from SMHI."""
-        url = (
-            "https://opendata-download-warnings.smhi.se/ibww/api/version/1/warning.json"
-        )
+    async def _async_update_data(self) -> Dict[str, Any]:
+        """Fetch data from SMHI with conditional requests and build derived metrics."""
+        headers: Dict[str, str] = {}
+        if self._etag:
+            headers["If-None-Match"] = self._etag
+        if self._last_modified:
+            headers["If-Modified-Since"] = self._last_modified
 
-        data = {
+        data: Dict[str, Any] = {
             "state": "No Alerts" if self.language == "en" else "Inga varningar",
-            "attributes": {"messages": [], "notice": ""},
+            "attributes": {
+                "messages": [],
+                "notice": "",
+                "warnings_count": 0,
+                "messages_count": 0,
+                "alerts_count": 0,
+                "highest_severity": "NONE",
+                "attribution": "Data from SMHI",
+                "last_update": None,
+                "data_source_url": WARNINGS_URL,
+            },
         }
 
         try:
-            async with async_timeout.timeout(10):
-                async with self.session.get(url) as response:
-                    response.raise_for_status()
-                    json_data = await response.json()
+            async with async_timeout.timeout(15):
+                async with self.session.get(WARNINGS_URL, headers=headers) as response:
+                    if response.status == 304:
+                        # Not modified: just update timestamp
+                        data.update(self.data or {})
+                    else:
+                        response.raise_for_status()
+                        json_data = await response.json()
+                        messages, notice, derived = self._process_data(json_data)
+                        if derived["alerts_count"] > 0:
+                            data["state"] = (
+                                "Alert" if self.language == "en" else "Varning"
+                            )
+                        data["attributes"]["messages"] = messages
+                        data["attributes"]["notice"] = notice
+                        data["attributes"].update(derived)
 
-            messages, notice = self._process_data(json_data)
+                        # Save caching headers
+                        self._etag = response.headers.get("ETag")
+                        self._last_modified = response.headers.get("Last-Modified")
 
-            if messages:
-                data["state"] = "Alert" if self.language == "en" else "Varning"
-                data["attributes"]["messages"] = messages
-                data["attributes"]["notice"] = notice
+            self._last_success = dt_util.utcnow().isoformat()
+            data["attributes"]["last_update"] = self._last_success
+            # Localized timestamp
+            try:
+                data["attributes"]["last_update_local"] = dt_util.as_local(
+                    dt_util.parse_datetime(self._last_success)
+                ).isoformat()
+            except Exception:
+                data["attributes"]["last_update_local"] = None
 
-            self.available = True
+            # Reset backoff on success
+            self._failure_count = 0
+            self.update_interval = self._base_interval
             return data
 
         except (ClientError, asyncio.TimeoutError) as err:
-            self.available = False
+            # Exponential backoff
+            self._failure_count += 1
+            self._apply_backoff()
             raise UpdateFailed(f"Communication error: {err}") from err
         except ValueError as err:
-            self.available = False
+            self._failure_count += 1
+            self._apply_backoff()
             raise UpdateFailed(f"Invalid response: {err}") from err
         except Exception as err:
-            self.available = False
+            self._failure_count += 1
+            self._apply_backoff()
             raise UpdateFailed(str(err)) from err
 
-    def _process_data(self, data):
-        """Process the data received from SMHI."""
-        messages = []
-        notice = ""
+    def _apply_backoff(self) -> None:
+        # Cap backoff to 60 minutes
+        factor = min(self._failure_count, 5)
+        seconds = self._base_interval.total_seconds() * (2 ** factor)
+        max_seconds = 60 * 60
+        self.update_interval = dt_util.timedelta(seconds=min(seconds, max_seconds))
+
+    def _process_data(self, data: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
+        """Process data, compute derived metrics, and build messages and notice."""
+        messages: List[Dict[str, Any]] = []
+        notice_lines: List[str] = []
+        highest_severity: str = "NONE"
+        warnings_count = 0
+        messages_count = 0
 
         if not data:
-            return messages, notice
+            return messages, "", {
+                "warnings_count": 0,
+                "messages_count": 0,
+                "alerts_count": 0,
+                "highest_severity": highest_severity,
+            }
 
         for alert in data:
             event = alert.get("event", {}).get(self.language, "")
             warning_areas = alert.get("warningAreas", [])
             for area in warning_areas:
                 affected_areas = area.get("affectedAreas", [])
-                valid_areas = []
+                valid_areas: List[str] = []
 
                 for affected_area in affected_areas:
                     area_id = str(affected_area.get("id"))
                     area_name = affected_area.get(self.language)
                     if area_id == self.district or self.district == "all":
-                        valid_areas.append(area_name)
+                        if area_name:
+                            valid_areas.append(area_name)
 
                 if not valid_areas:
                     continue
 
                 severity_info = area.get("warningLevel", {})
-                code = severity_info.get("code", "").upper()
-                severity = severity_info.get(self.language, "")
-                level = severity
+                code = str(severity_info.get("code", "")).upper()
+                severity = severity_info.get(self.language, "") or code.title()
 
-                # Check if code is MESSAGE and include_messages is False
                 if code == "MESSAGE" and not self.include_messages:
-                    continue  # Skip this message
+                    continue
+
+                if code in ("YELLOW", "ORANGE", "RED"):
+                    warnings_count += 1
+                elif code == "MESSAGE":
+                    messages_count += 1
+
+                if SEVERITY_ORDER.index(code if code in SEVERITY_ORDER else "NONE") > SEVERITY_ORDER.index(highest_severity):
+                    highest_severity = code
 
                 descr = area.get("eventDescription", {}).get(self.language, "")
                 start_time = area.get("approximateStart", "")
-                end_time = area.get("approximateEnd", "")
+                end_time = area.get("approximateEnd", "") or (
+                    "Unknown" if self.language == "en" else "Okänt"
+                )
                 published = area.get("published", "")
 
-                # Details
-                details = ""
+                # Local time conversions
+                def to_local_iso(value: Any) -> Any:
+                    if not isinstance(value, str):
+                        return None
+                    try:
+                        dt_utc = dt_util.parse_datetime(value)
+                        if dt_utc is None:
+                            return None
+                        return dt_util.as_local(dt_utc).isoformat()
+                    except Exception:
+                        return None
+
+                start_local = to_local_iso(start_time)
+                end_local = to_local_iso(end_time)
+                published_local = to_local_iso(published)
+
+                details_lines: List[str] = []
                 descriptions = area.get("descriptions", [])
                 for desc in descriptions:
                     title = desc.get("title", {}).get(self.language, "")
                     text = desc.get("text", {}).get(self.language, "")
-                    details += f"{title}: {text}\n"
+                    if title or text:
+                        details_lines.append(f"{title}: {text}".strip())
+                details = "\n".join(details_lines)
 
                 msg = {
                     "event": event,
                     "start": start_time,
-                    "end": end_time
-                    or ("Unknown" if self.language == "en" else "Okänt"),
+                    "start_local": start_local,
+                    "end": end_time,
+                    "end_local": end_local,
                     "published": published,
+                    "published_local": published_local,
                     "code": code,
                     "severity": severity,
-                    "level": level,
+                    "level": severity,
                     "descr": descr,
                     "details": details,
                     "area": ", ".join(valid_areas),
@@ -228,9 +313,16 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 }
 
                 messages.append(msg)
-                notice += self._format_notice(msg)
+                notice_lines.append(self._format_notice(msg))
 
-        return messages, notice
+        alerts_count = warnings_count + (messages_count if self.include_messages else 0)
+        derived = {
+            "warnings_count": warnings_count,
+            "messages_count": messages_count,
+            "alerts_count": alerts_count,
+            "highest_severity": highest_severity,
+        }
+        return messages, "".join(notice_lines), derived
 
     def _get_event_color(self, code):
         """Return color code based on severity code."""
