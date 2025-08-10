@@ -34,7 +34,7 @@ class SMHIAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": self._attr_name,
-            "manufacturer": "SMHI",
+            "manufacturer": "Nicxe",
             "entry_type": DeviceEntryType.SERVICE,
         }
 

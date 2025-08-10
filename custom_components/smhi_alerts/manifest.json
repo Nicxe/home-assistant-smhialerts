@@ -4,11 +4,11 @@
   "codeowners": ["@Nicxe"],
   "config_flow": true,
   "documentation": "https://github.com/Nicxe/home-assistant-smhialerts",
+  "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Nicxe/home-assistant-smhialerts/issues",
-  "version": "2.1.0",
   "loggers": ["custom_components.smhi_alerts"],
-  "integration_type": "hub"
+  "version": "3.0.0"
 }
 
 
