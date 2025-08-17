@@ -14,8 +14,6 @@ There is also a dashboard card specifically for this integration, which can be f
 
 This custom component connects to SMHI's open API to retrieve weather alerts in Sweden, organizing the data by districts and their respective messages. You can choose to receive notifications for all districts or a specific one.
 
-*Based on [SMHI Alert Card](https://github.com/Lallassu/smhialert)*
-
 ## Installation
 
 You can install this integration as a custom repository by following one of these guides:
@@ -71,4 +69,5 @@ If the button above does not work, you can also perform the following steps manu
 
 Using the [SMHI Alert Card](https://github.com/Nicxe/home-assistant-smhialert-card):
 
-<img src="https://github.com/Nicxe/home-assistant-smhialert-card/blob/main/Screenshot.png">
+<img width="482" height="520" alt="smhi_alert_screenshoot" src="https://github.com/user-attachments/assets/13b65017-d315-48ae-9934-9ed8537163fa" />
+
