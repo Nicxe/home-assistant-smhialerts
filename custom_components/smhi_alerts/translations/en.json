@@ -12,6 +12,18 @@
                 "data_description": {
                     "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
                 }
+            },
+            "reconfigure": {
+                "title": "Reconfigure SMHI Alert",
+                "description": "Update the configuration for this SMHI Alert entry.",
+                "data": {
+                    "district": "District",
+                    "language": "Language",
+                    "include_messages": "Show messages"
+                },
+                "data_description": {
+                    "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
+                }
             }
         }
     },

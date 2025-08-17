@@ -3,15 +3,16 @@ from datetime import timedelta
 DOMAIN = "smhi_alerts"
 CONF_DISTRICT = "district"
 CONF_LANGUAGE = "language"
-CONF_INCLUDE_MESSAGES = "include_messages"  # New configuration option
+CONF_INCLUDE_MESSAGES = "include_messages"
 LANGUAGES = ["en", "sv"]
 LANGUAGE_OPTIONS = {"en": "Engelska", "sv": "Svenska"}
-DEFAULT_NAME = "SMHI Alert"
+DEFAULT_NAME = "SMHI Alerts"
 DEFAULT_DISTRICT = "all"
 DEFAULT_LANGUAGE = "sv"
 DEFAULT_INCLUDE_MESSAGES = False
 SCAN_INTERVAL = timedelta(minutes=5)
 
+# Static fallback; prefer dynamically fetched areas from SMHI API when available
 DISTRICTS = {
     "1": "Stockholms län",
     "3": "Uppsala län",
@@ -54,3 +55,14 @@ DISTRICTS = {
     "58": "Vänern",
     "all": "Alla distrikt (Ej rekommenderat)",
 }
+
+# Severity order for derived metrics
+SEVERITY_ORDER = ["NONE", "MESSAGE", "YELLOW", "ORANGE", "RED"]
+
+# API endpoints
+WARNINGS_URL = (
+    "https://opendata-download-warnings.smhi.se/ibww/api/version/1/warning.json"
+)
+AREAS_URL = (
+    "https://opendata-download-warnings.smhi.se/ibww/api/version/1/areas.json"
+)
