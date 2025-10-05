@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.device_registry import DeviceEntryType
 
-from .const import DOMAIN, DISTRICTS, DEFAULT_NAME
+from .const import DOMAIN, DISTRICTS, DEFAULT_NAME, DEFAULT_MODE, DEFAULT_RADIUS_KM
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,10 +27,10 @@ class SMHIAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self.entry = entry
         self.district = coordinator.district
         self.language = coordinator.language
-        self._attr_name = f"{DEFAULT_NAME} active ({DISTRICTS.get(self.district, self.district)})"
+        self._attr_name = self._derive_name()
         self._attr_device_class = "problem"
         self._attr_icon = "mdi:alert-circle"
-        self._attr_unique_id = f"{entry.entry_id}_smhi_alert_active_{self.district}"
+        self._attr_unique_id = self._derive_unique_id()
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": self._attr_name,
@@ -55,5 +55,23 @@ class SMHIAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
             "last_update": src.get("last_update"),
             "attribution": src.get("attribution"),
         }
+
+    def _derive_name(self) -> str:
+        if getattr(self.coordinator, "mode", DEFAULT_MODE) == "coordinate":
+            lat = round(getattr(self.coordinator, "latitude", 0.0), 4)
+            lon = round(getattr(self.coordinator, "longitude", 0.0), 4)
+            r = int(round(getattr(self.coordinator, "radius_km", DEFAULT_RADIUS_KM)))
+            return f"{DEFAULT_NAME} active ({lat},{lon} @ {r}km)"
+        else:
+            return f"{DEFAULT_NAME} active ({DISTRICTS.get(self.district, self.district)})"
+
+    def _derive_unique_id(self) -> str:
+        if getattr(self.coordinator, "mode", DEFAULT_MODE) == "coordinate":
+            lat = round(getattr(self.coordinator, "latitude", 0.0), 4)
+            lon = round(getattr(self.coordinator, "longitude", 0.0), 4)
+            r = int(round(getattr(self.coordinator, "radius_km", DEFAULT_RADIUS_KM)))
+            return f"{self.entry.entry_id}_smhi_alert_active_coord_{lat}_{lon}_{r}km"
+        else:
+            return f"{self.entry.entry_id}_smhi_alert_active_{self.district}"
 
 

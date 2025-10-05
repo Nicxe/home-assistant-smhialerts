@@ -5,11 +5,19 @@
                 "title": "SMHI Alert",
                 "description": "Configure the SMHI Alert integration.",
                 "data": {
+                    "mode": "Filter mode",
                     "district": "District",
+                    "location": "Location (map)",
+                    "radius_km": "Radius (km)",
+                    "exclude_sea": "Exclude sea warnings",
                     "language": "Language",
                     "include_messages": "Show messages"
                 },
                 "data_description": {
+                    "mode": "Choose to filter by administrative district or by a coordinate + radius.",
+                    "location": "Pick a position on the map. Defaults to your Home Assistant home location.",
+                    "radius_km": "Defaults to 10 km. Alerts are matched if their area passes within this radius.",
+                    "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea).",
                     "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
                 }
             },
@@ -17,12 +25,20 @@
                 "title": "Reconfigure SMHI Alert",
                 "description": "Update the configuration for this SMHI Alert entry.",
                 "data": {
+                    "mode": "Filter mode",
                     "district": "District",
+                    "location": "Location (map)",
+                    "radius_km": "Radius (km)",
+                    "exclude_sea": "Exclude sea warnings",
                     "language": "Language",
                     "include_messages": "Show messages"
                 },
                 "data_description": {
-                    "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
+                    "mode": "Choose to filter by administrative district or by a coordinate + radius.",
+                    "location": "Pick a position on the map. Defaults to your Home Assistant home location.",
+                    "radius_km": "Defaults to 10 km. Alerts are matched if their area passes within this radius.",
+                    "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk.",
+                    "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea)."
                 }
             }
         }
@@ -33,12 +49,20 @@
                 "title": "SMHI Alert Options",
                 "description": "Update SMHI Alert options.",
                 "data": {
+                    "mode": "Filter mode",
                     "district": "District",
+                    "location": "Location (map)",
+                    "radius_km": "Radius (km)",
+                    "exclude_sea": "Exclude sea warnings",
                     "language": "Language",
                     "include_messages": "Show messages"
                 },
                 "data_description": {
-                    "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
+                    "mode": "Choose to filter by administrative district or by a coordinate + radius.",
+                    "location": "Pick a position on the map. Defaults to your Home Assistant home location.",
+                    "radius_km": "Defaults to 10 km. Alerts are matched if their area passes within this radius.",
+                    "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk.",
+                    "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea)."
                 }
             }
         }
