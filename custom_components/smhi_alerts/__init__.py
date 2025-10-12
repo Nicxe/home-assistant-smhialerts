@@ -10,6 +10,14 @@ from .const import (
     CONF_INCLUDE_MESSAGES,
     DEFAULT_LANGUAGE,
     DEFAULT_INCLUDE_MESSAGES,
+    CONF_MODE,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_RADIUS_KM,
+    DEFAULT_MODE,
+    DEFAULT_RADIUS_KM,
+    CONF_EXCLUDE_SEA,
+    DEFAULT_EXCLUDE_SEA,
 )
 from .sensor import SmhiAlertCoordinator
 
@@ -39,6 +47,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     async def _options_updated(hass: HomeAssistant, updated_entry: ConfigEntry):
         coord = hass.data[DOMAIN][updated_entry.entry_id]["coordinator"]
+        coord.mode = updated_entry.options.get(
+            CONF_MODE, updated_entry.data.get(CONF_MODE, DEFAULT_MODE)
+        )
         coord.district = updated_entry.options.get(
             CONF_DISTRICT, updated_entry.data.get(CONF_DISTRICT, "all")
         )
@@ -48,6 +59,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         coord.include_messages = updated_entry.options.get(
             CONF_INCLUDE_MESSAGES,
             updated_entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+        )
+        coord.exclude_sea = updated_entry.options.get(
+            CONF_EXCLUDE_SEA,
+            updated_entry.data.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA),
+        )
+        coord.latitude = float(
+            updated_entry.options.get(
+                CONF_LATITUDE, updated_entry.data.get(CONF_LATITUDE, hass.config.latitude)
+            )
+        )
+        coord.longitude = float(
+            updated_entry.options.get(
+                CONF_LONGITUDE, updated_entry.data.get(CONF_LONGITUDE, hass.config.longitude)
+            )
+        )
+        coord.radius_km = float(
+            updated_entry.options.get(
+                CONF_RADIUS_KM, updated_entry.data.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM)
+            )
         )
         await coord.async_request_refresh()
         # Request entity/registry to update names immediately
@@ -74,3 +104,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
 
     return unload_ok
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate config entry to newer version."""
+    # We bumped ConfigFlow.VERSION to 2 to introduce filter mode and coordinates.
+    if entry.version < 2:
+        data = dict(entry.data)
+        options = dict(entry.options)
+        # Default to district mode for existing installations
+        if CONF_MODE not in data and CONF_MODE not in options:
+            data[CONF_MODE] = DEFAULT_MODE
+        # No coordinate defaults needed unless chosen later in options
+        hass.config_entries.async_update_entry(entry, data=data, version=2)
+    return True

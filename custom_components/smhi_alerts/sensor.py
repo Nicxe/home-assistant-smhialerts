@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 from aiohttp import ClientError
 import async_timeout
 from homeassistant.components.sensor import SensorEntity
@@ -19,13 +19,22 @@ from .const import (
     CONF_DISTRICT,
     CONF_LANGUAGE,
     CONF_INCLUDE_MESSAGES,
+    CONF_MODE,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_RADIUS_KM,
+    CONF_EXCLUDE_SEA,
     DEFAULT_NAME,
     SCAN_INTERVAL,
     DISTRICTS,
     DEFAULT_LANGUAGE,
     DEFAULT_INCLUDE_MESSAGES,
+    DEFAULT_MODE,
+    DEFAULT_RADIUS_KM,
     WARNINGS_URL,
     SEVERITY_ORDER,
+    MARINE_AREA_IDS,
+    MARINE_EVENT_CODES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,6 +64,9 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry):
     _LOGGER.debug("Options updated, refreshing coordinator")
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     # Update coordinator configuration
+    coordinator.mode = entry.options.get(
+        CONF_MODE, entry.data.get(CONF_MODE, DEFAULT_MODE)
+    )
     coordinator.district = entry.options.get(
         CONF_DISTRICT, entry.data.get(CONF_DISTRICT, "all")
     )
@@ -64,6 +76,25 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry):
     coordinator.include_messages = entry.options.get(
         CONF_INCLUDE_MESSAGES,
         entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+    )
+    coordinator.exclude_sea = entry.options.get(
+        CONF_EXCLUDE_SEA,
+        entry.data.get(CONF_EXCLUDE_SEA, False),
+    )
+    coordinator.latitude = float(
+        entry.options.get(
+            CONF_LATITUDE, entry.data.get(CONF_LATITUDE, hass.config.latitude)
+        )
+    )
+    coordinator.longitude = float(
+        entry.options.get(
+            CONF_LONGITUDE, entry.data.get(CONF_LONGITUDE, hass.config.longitude)
+        )
+    )
+    coordinator.radius_km = float(
+        entry.options.get(
+            CONF_RADIUS_KM, entry.data.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM)
+        )
     )
     await coordinator.async_request_refresh()
 
@@ -76,11 +107,9 @@ class SMHIAlertSensor(CoordinatorEntity, SensorEntity):
         self.entry = entry
         self.district = coordinator.district
         self.language = coordinator.language
-        self._attr_name = (
-            f"{DEFAULT_NAME} ({DISTRICTS.get(self.district, self.district)})"
-        )
+        self._attr_name = self._derive_name()
         self._attr_icon = "mdi:alert"
-        self._attr_unique_id = f"{entry.entry_id}_smhi_alert_sensor_{self.district}"
+        self._attr_unique_id = self._derive_unique_id()
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": self._attr_name,
@@ -98,8 +127,26 @@ class SMHIAlertSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        # Reflect updated district name if options change
-        return f"{DEFAULT_NAME} ({DISTRICTS.get(self.coordinator.district, self.coordinator.district)})"
+        return self._derive_name()
+
+    def _derive_name(self) -> str:
+        if getattr(self.coordinator, "mode", DEFAULT_MODE) == "coordinate":
+            lat = round(getattr(self.coordinator, "latitude", 0.0), 4)
+            lon = round(getattr(self.coordinator, "longitude", 0.0), 4)
+            r = int(round(getattr(self.coordinator, "radius_km", DEFAULT_RADIUS_KM)))
+            return f"{DEFAULT_NAME} ({lat},{lon} @ {r}km)"
+        else:
+            district = getattr(self.coordinator, "district", "all")
+            return f"{DEFAULT_NAME} ({DISTRICTS.get(district, district)})"
+
+    def _derive_unique_id(self) -> str:
+        if getattr(self.coordinator, "mode", DEFAULT_MODE) == "coordinate":
+            lat = round(getattr(self.coordinator, "latitude", 0.0), 4)
+            lon = round(getattr(self.coordinator, "longitude", 0.0), 4)
+            r = int(round(getattr(self.coordinator, "radius_km", DEFAULT_RADIUS_KM)))
+            return f"{self.entry.entry_id}_smhi_alert_sensor_coord_{lat}_{lon}_{r}km"
+        else:
+            return f"{self.entry.entry_id}_smhi_alert_sensor_{self.coordinator.district}"
 
 
 class SmhiAlertCoordinator(DataUpdateCoordinator):
@@ -109,6 +156,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         """Initialize."""
         self.hass = hass
         self.entry = entry
+        self.mode = entry.options.get(
+            CONF_MODE, entry.data.get(CONF_MODE, DEFAULT_MODE)
+        )
         self.district = entry.options.get(
             CONF_DISTRICT, entry.data.get(CONF_DISTRICT, "all")
         )
@@ -118,6 +168,25 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         self.include_messages = entry.options.get(
             CONF_INCLUDE_MESSAGES,
             entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+        )
+        self.exclude_sea = entry.options.get(
+            CONF_EXCLUDE_SEA,
+            entry.data.get(CONF_EXCLUDE_SEA, False),
+        )
+        self.latitude = float(
+            entry.options.get(
+                CONF_LATITUDE, entry.data.get(CONF_LATITUDE, hass.config.latitude)
+            )
+        )
+        self.longitude = float(
+            entry.options.get(
+                CONF_LONGITUDE, entry.data.get(CONF_LONGITUDE, hass.config.longitude)
+            )
+        )
+        self.radius_km = float(
+            entry.options.get(
+                CONF_RADIUS_KM, entry.data.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM)
+            )
         )
         self.session = aiohttp_client.async_get_clientsession(hass)
         self._etag: str | None = None
@@ -154,6 +223,11 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 "attribution": "Data from SMHI",
                 "last_update": None,
                 "data_source_url": WARNINGS_URL,
+                "filter_mode": getattr(self, "mode", DEFAULT_MODE),
+                "filter_latitude": getattr(self, "latitude", None),
+                "filter_longitude": getattr(self, "longitude", None),
+                "filter_radius_km": getattr(self, "radius_km", None),
+                "filter_exclude_sea": getattr(self, "exclude_sea", False),
             },
         }
 
@@ -233,20 +307,38 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
 
         for alert in data:
             event = alert.get("event", {}).get(self.language, "")
+            event_obj = alert.get("event", {})
+            event_code = str(event_obj.get("code", "")).upper()
+            mho_class = (event_obj.get("mhoClassification", {}) or {}).get("code")
+            mho_class = str(mho_class).upper() if mho_class else None
             warning_areas = alert.get("warningAreas", [])
             for area in warning_areas:
-                affected_areas = area.get("affectedAreas", [])
                 valid_areas: List[str] = []
 
-                for affected_area in affected_areas:
-                    area_id = str(affected_area.get("id"))
-                    area_name = affected_area.get(self.language)
-                    if area_id == self.district or self.district == "all":
-                        if area_name:
-                            valid_areas.append(area_name)
-
-                if not valid_areas:
-                    continue
+                if getattr(self, "mode", DEFAULT_MODE) == "coordinate":
+                    if self.exclude_sea and self._is_marine_area(area, event_code, mho_class):
+                        continue
+                    if self._area_matches_coordinate_filter(area):
+                        name_obj = area.get("areaName", {})
+                        label = name_obj.get(self.language) or name_obj.get("en") or name_obj.get("sv")
+                        if label:
+                            valid_areas.append(label)
+                        else:
+                            valid_areas.append("Area")
+                    else:
+                        continue
+                else:
+                    affected_areas = area.get("affectedAreas", [])
+                    for affected_area in affected_areas:
+                        area_id = str(affected_area.get("id"))
+                        area_name = affected_area.get(self.language)
+                        if self.exclude_sea and (area_id in MARINE_AREA_IDS or event_code in MARINE_EVENT_CODES or mho_class == "OCE" or event_code.endswith("_SEA")):
+                            continue
+                        if area_id == self.district or self.district == "all":
+                            if area_name:
+                                valid_areas.append(area_name)
+                    if not valid_areas:
+                        continue
 
                 severity_info = area.get("warningLevel", {})
                 code = str(severity_info.get("code", "")).upper()
@@ -322,7 +414,170 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             "alerts_count": alerts_count,
             "highest_severity": highest_severity,
         }
-        return messages, "".join(notice_lines), derived
+
+        # Sort messages by severity (most severe first): RED > ORANGE > YELLOW > MESSAGE
+        def _rank(code: str) -> int:
+            return SEVERITY_ORDER.index(code if code in SEVERITY_ORDER else "NONE")
+
+        messages_sorted = sorted(messages, key=lambda m: _rank(m.get("code", "NONE")), reverse=True)
+        # Rebuild notice to reflect sorted order
+        notice_sorted = "".join(self._format_notice(m) for m in messages_sorted)
+        return messages_sorted, notice_sorted, derived
+
+    # --- Geometry helpers for coordinate filtering ---
+    def _area_matches_coordinate_filter(self, area: Dict[str, Any]) -> bool:
+        geometry_container = area.get("area")
+        if not geometry_container:
+            return False
+
+        center_lon = float(getattr(self, "longitude", 0.0))
+        center_lat = float(getattr(self, "latitude", 0.0))
+        radius_m = float(getattr(self, "radius_km", DEFAULT_RADIUS_KM)) * 1000.0
+
+        def feature_matches(feature: Dict[str, Any]) -> bool:
+            geom = feature.get("geometry", feature)  # feature or raw geometry
+            if not isinstance(geom, dict):
+                return False
+            gtype = geom.get("type")
+            coords = geom.get("coordinates")
+            if not gtype or coords is None:
+                return False
+            if gtype == "Polygon":
+                return self._polygon_within_radius(center_lon, center_lat, radius_m, coords)
+            if gtype == "LineString":
+                return self._linestring_within_radius(center_lon, center_lat, radius_m, coords)
+            if gtype == "MultiPolygon":
+                for poly in coords or []:
+                    if self._polygon_within_radius(center_lon, center_lat, radius_m, poly):
+                        return True
+                return False
+            if gtype == "MultiLineString":
+                for line in coords or []:
+                    if self._linestring_within_radius(center_lon, center_lat, radius_m, line):
+                        return True
+                return False
+            return False
+
+        gtype = geometry_container.get("type")
+        if gtype == "FeatureCollection":
+            for feat in geometry_container.get("features", []) or []:
+                if feature_matches(feat):
+                    return True
+            return False
+        if gtype == "Feature":
+            return feature_matches(geometry_container)
+        # Some payloads embed raw geometry directly
+        return feature_matches(geometry_container)
+
+    def _is_marine_area(self, area: Dict[str, Any], event_code: str, mho_class: Optional[str]) -> bool:
+        # Marine by event classification
+        if event_code in MARINE_EVENT_CODES or (event_code and event_code.endswith("_SEA")):
+            return True
+        if mho_class == "OCE":
+            return True
+        # Marine by affectedAreas IDs
+        for affected in area.get("affectedAreas", []) or []:
+            if str(affected.get("id")) in MARINE_AREA_IDS:
+                return True
+        return False
+
+    def _project(self, lon: float, lat: float, lon0: float, lat0: float) -> Tuple[float, float]:
+        # Equirectangular projection around (lon0, lat0) in meters
+        from math import radians, cos
+
+        R = 6371000.0
+        lat_r = radians(lat)
+        lon_r = radians(lon)
+        lat0_r = radians(lat0)
+        lon0_r = radians(lon0)
+        x = (lon_r - lon0_r) * cos(lat0_r) * R
+        y = (lat_r - lat0_r) * R
+        return x, y
+
+    def _point_in_polygon(self, point_xy: Tuple[float, float], poly_lonlat_rings: List[List[List[float]]], center_lon: float, center_lat: float) -> bool:
+        # Only consider outer ring for inclusion; ignore holes for simplicity
+        if not poly_lonlat_rings:
+            return False
+        outer = poly_lonlat_rings[0]
+        if not outer:
+            return False
+        x, y = point_xy
+        inside = False
+        # Ray casting
+        prev_x = prev_y = None
+        for i in range(len(outer)):
+            lon_i, lat_i = outer[i]
+            lon_j, lat_j = outer[i - 1] if i > 0 else outer[-1]
+            xi, yi = self._project(lon_i, lat_i, center_lon, center_lat)
+            xj, yj = self._project(lon_j, lat_j, center_lon, center_lat)
+            intersect = ((yi > y) != (yj > y)) and (
+                x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi
+            )
+            if intersect:
+                inside = not inside
+        return inside
+
+    def _distance_point_to_segment(self, px: float, py: float, ax: float, ay: float, bx: float, by: float) -> float:
+        # Return min distance from point P to segment AB in meters
+        from math import hypot
+
+        abx = bx - ax
+        aby = by - ay
+        apx = px - ax
+        apy = py - ay
+        denom = abx * abx + aby * aby
+        if denom <= 0:
+            return hypot(px - ax, py - ay)
+        t = max(0.0, min(1.0, (apx * abx + apy * aby) / denom))
+        cx = ax + t * abx
+        cy = ay + t * aby
+        return hypot(px - cx, py - cy)
+
+    def _polygon_within_radius(self, center_lon: float, center_lat: float, radius_m: float, poly_coords: List[List[List[float]]]) -> bool:
+        px, py = self._project(center_lon, center_lat, center_lon, center_lat)
+        if self._point_in_polygon((px, py), poly_coords, center_lon, center_lat):
+            return True
+        # Min distance to outer ring
+        outer = poly_coords[0] if poly_coords else []
+        if len(outer) < 2:
+            return False
+        min_d = 1e20
+        prev = None
+        for pt in outer:
+            if prev is None:
+                prev = pt
+                continue
+            ax, ay = self._project(prev[0], prev[1], center_lon, center_lat)
+            bx, by = self._project(pt[0], pt[1], center_lon, center_lat)
+            d = self._distance_point_to_segment(px, py, ax, ay, bx, by)
+            if d < min_d:
+                min_d = d
+            prev = pt
+        # Close ring
+        ax, ay = self._project(outer[-1][0], outer[-1][1], center_lon, center_lat)
+        bx, by = self._project(outer[0][0], outer[0][1], center_lon, center_lat)
+        d = self._distance_point_to_segment(px, py, ax, ay, bx, by)
+        if d < min_d:
+            min_d = d
+        return min_d <= radius_m
+
+    def _linestring_within_radius(self, center_lon: float, center_lat: float, radius_m: float, line_coords: List[List[float]]) -> bool:
+        if not line_coords or len(line_coords) < 2:
+            return False
+        px, py = self._project(center_lon, center_lat, center_lon, center_lat)
+        min_d = 1e20
+        prev = None
+        for pt in line_coords:
+            if prev is None:
+                prev = pt
+                continue
+            ax, ay = self._project(prev[0], prev[1], center_lon, center_lat)
+            bx, by = self._project(pt[0], pt[1], center_lon, center_lat)
+            d = self._distance_point_to_segment(px, py, ax, ay, bx, by)
+            if d < min_d:
+                min_d = d
+            prev = pt
+        return min_d <= radius_m
 
     def _get_event_color(self, code):
         """Return color code based on severity code."""

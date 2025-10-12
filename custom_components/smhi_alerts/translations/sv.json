@@ -5,11 +5,19 @@
                 "title": "SMHI Alert",
                 "description": "Konfigurera SMHI Alert-integrationen.",
                 "data": {
+                    "mode": "Filterläge",
                     "district": "Distrikt",
+                    "location": "Position (karta)",
+                    "radius_km": "Radie (km)",
+                    "exclude_sea": "Exkludera varningar till havs",
                     "language": "Språk",
                     "include_messages": "Visa meddelanden"
                 },
                 "data_description": {
+                    "mode": "Välj att filtrera på administrativt distrikt eller på koordinat + radie.",
+                    "location": "Välj position på en karta. Standard hämtas från Home Assistants hemposition.",
+                    "radius_km": "Standard är 10 km. Varningar matchas om deras område passerar inom denna radie.",
+                    "exclude_sea": "Exkludera marina varningar (t.ex. högt vattenstånd, medelvind till havs).",
                     "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
                 }
             },
@@ -17,11 +25,19 @@
                 "title": "Omkonfigurera SMHI Alert",
                 "description": "Uppdatera konfigurationen för denna SMHI Alert-post.",
                 "data": {
+                    "mode": "Filterläge",
                     "district": "Distrikt",
+                    "location": "Position (karta)",
+                    "radius_km": "Radie (km)",
+                    "exclude_sea": "Exkludera varningar till havs",
                     "language": "Språk",
                     "include_messages": "Visa meddelanden"
                 },
                 "data_description": {
+                    "mode": "Välj att filtrera på administrativt distrikt eller på koordinat + radie.",
+                    "latitude": "Standard hämtas från Home Assistants hem-latitud.",
+                    "longitude": "Standard hämtas från Home Assistants hem-longitud.",
+                    "radius_km": "Standard är 10 km. Varningar matchas om deras område passerar inom denna radie.",
                     "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
                 }
             }
@@ -33,12 +49,20 @@
                 "title": "SMHI Alert-alternativ",
                 "description": "Uppdatera SMHI Alert-alternativ.",
                 "data": {
+                    "mode": "Filterläge",
                     "district": "Distrikt",
+                    "latitude": "Latitud",
+                    "longitude": "Longitud",
+                    "radius_km": "Radie (km)",
                     "language": "Språk",
                     "include_messages": "Visa meddelanden"
                 },
                 "data_description": {
-                    "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk."
+                    "mode": "Välj att filtrera på administrativt distrikt eller på koordinat + radie.",
+                    "location": "Välj position på en karta. Standard hämtas från Home Assistants hemposition.",
+                    "radius_km": "Standard är 10 km. Varningar matchas om deras område passerar inom denna radie.",
+                    "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk.",
+                    "exclude_sea": "Exkludera marina varningar (t.ex. högt vattenstånd, medelvind till havs)."
                 }
             }
         }
