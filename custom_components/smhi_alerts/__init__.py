@@ -18,6 +18,10 @@ from .const import (
     DEFAULT_RADIUS_KM,
     CONF_EXCLUDE_SEA,
     DEFAULT_EXCLUDE_SEA,
+    CONF_EXCLUDED_MESSAGE_TYPES,
+    DEFAULT_EXCLUDED_MESSAGE_TYPES,
+    CONF_MESSAGE_TYPES,
+    DEFAULT_MESSAGE_TYPES,
 )
 from .sensor import SmhiAlertCoordinator
 
@@ -46,7 +50,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
 
     async def _options_updated(hass: HomeAssistant, updated_entry: ConfigEntry):
-        coord = hass.data[DOMAIN][updated_entry.entry_id]["coordinator"]
+        domain_data = hass.data.get(DOMAIN, {})
+        if updated_entry.entry_id not in domain_data:
+            return
+        coord = domain_data[updated_entry.entry_id]["coordinator"]
         coord.mode = updated_entry.options.get(
             CONF_MODE, updated_entry.data.get(CONF_MODE, DEFAULT_MODE)
         )
@@ -59,6 +66,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         coord.include_messages = updated_entry.options.get(
             CONF_INCLUDE_MESSAGES,
             updated_entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+        )
+        coord.set_message_types(
+            updated_entry.options.get(
+                CONF_MESSAGE_TYPES,
+                updated_entry.data.get(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES),
+            ),
+            updated_entry.options.get(
+                CONF_EXCLUDED_MESSAGE_TYPES,
+                updated_entry.data.get(CONF_EXCLUDED_MESSAGE_TYPES, DEFAULT_EXCLUDED_MESSAGE_TYPES),
+            ),
         )
         coord.exclude_sea = updated_entry.options.get(
             CONF_EXCLUDE_SEA,
@@ -80,10 +97,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             )
         )
         await coord.async_request_refresh()
-        # Request entity/registry to update names immediately
-        for platform in PLATFORMS:
-            await hass.config_entries.async_forward_entry_unload(updated_entry, platform)
-        await hass.config_entries.async_forward_entry_setups(updated_entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_options_updated))
 
@@ -109,12 +122,38 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate config entry to newer version."""
     # We bumped ConfigFlow.VERSION to 2 to introduce filter mode and coordinates.
+    updated = False
+    data = dict(entry.data)
+    options = dict(entry.options)
+    version = entry.version
+
     if entry.version < 2:
-        data = dict(entry.data)
-        options = dict(entry.options)
         # Default to district mode for existing installations
         if CONF_MODE not in data and CONF_MODE not in options:
             data[CONF_MODE] = DEFAULT_MODE
-        # No coordinate defaults needed unless chosen later in options
-        hass.config_entries.async_update_entry(entry, data=data, version=2)
+        version = 2
+        updated = True
+
+    if version < 3:
+        included = options.get(CONF_MESSAGE_TYPES) or data.get(CONF_MESSAGE_TYPES)
+        excluded = options.get(
+            CONF_EXCLUDED_MESSAGE_TYPES,
+            data.get(CONF_EXCLUDED_MESSAGE_TYPES, DEFAULT_EXCLUDED_MESSAGE_TYPES),
+        )
+        if not included:
+            if excluded:
+                included = [
+                    code for code in DEFAULT_MESSAGE_TYPES if code not in set(excluded)
+                ]
+            else:
+                included = list(DEFAULT_MESSAGE_TYPES)
+        data[CONF_MESSAGE_TYPES] = included
+        options.setdefault(CONF_MESSAGE_TYPES, included)
+        data.pop(CONF_EXCLUDED_MESSAGE_TYPES, None)
+        options.pop(CONF_EXCLUDED_MESSAGE_TYPES, None)
+        version = 3
+        updated = True
+
+    if updated:
+        hass.config_entries.async_update_entry(entry, data=data, options=options, version=version)
     return True

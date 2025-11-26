@@ -1,5 +1,6 @@
 {
     "name": "SMHI Alert",
-    "country": ["SE"]
+    "country": ["SE"],
+    "zip_release": true,
+    "filename": "smhi_alerts.zip"
 }
-  

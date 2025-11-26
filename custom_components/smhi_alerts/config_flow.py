@@ -20,16 +20,51 @@ from .const import (
     DEFAULT_RADIUS_KM,
     CONF_EXCLUDE_SEA,
     DEFAULT_EXCLUDE_SEA,
+    CONF_EXCLUDED_MESSAGE_TYPES,
+    DEFAULT_EXCLUDED_MESSAGE_TYPES,
+    CONF_MESSAGE_TYPES,
+    DEFAULT_MESSAGE_TYPES,
+    MESSAGE_EVENT_CATEGORIES,
 )
-from homeassistant.helpers.selector import selector
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.selector import selector
 from homeassistant.helpers import aiohttp_client
+
+
+def _build_message_multiselect_options() -> dict[str, str]:
+    options: dict[str, str] = {}
+    for item in MESSAGE_EVENT_CATEGORIES:
+        sv = item.get("label_sv") or ""
+        en = item.get("label_en") or ""
+        if sv and en and sv.lower() != en.lower():
+            label = f"{sv} / {en}"
+        else:
+            label = sv or en or item["value"]
+        options[item["value"]] = label
+    return options
+
+
+def _resolve_entry_message_types(entry):
+    included = entry.options.get(
+        CONF_MESSAGE_TYPES,
+        entry.data.get(CONF_MESSAGE_TYPES),
+    )
+    if not included:
+        excluded = entry.options.get(
+            CONF_EXCLUDED_MESSAGE_TYPES,
+            entry.data.get(CONF_EXCLUDED_MESSAGE_TYPES, DEFAULT_EXCLUDED_MESSAGE_TYPES),
+        )
+        if excluded:
+            included = [code for code in DEFAULT_MESSAGE_TYPES if code not in excluded]
+    if not included:
+        included = DEFAULT_MESSAGE_TYPES
+    return included
 
 
 class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SMHI Alerts."""
 
-    VERSION = 2
+    VERSION = 3
 
     async def async_step_reconfigure(self, user_input=None):
         """Handle reconfigure initiated from the UI on an existing entry."""
@@ -60,13 +95,19 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_EXCLUDE_SEA,
             entry.data.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA),
         )
+        current_message_types = _resolve_entry_message_types(entry)
 
         if user_input is not None:
+            user_input = dict(user_input)
+            user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
             # Update entry data to reflect new baseline configuration
             new_data = {
                 CONF_MODE: user_input[CONF_MODE],
                 CONF_LANGUAGE: user_input[CONF_LANGUAGE],
                 CONF_INCLUDE_MESSAGES: user_input.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+                CONF_MESSAGE_TYPES: user_input.get(
+                    CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES
+                ),
             }
             if user_input[CONF_MODE] == "district":
                 new_data[CONF_DISTRICT] = user_input[CONF_DISTRICT]
@@ -81,9 +122,14 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 new_data[CONF_EXCLUDE_SEA] = user_input.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA)
                 new_title = f"SMHI Alert ({round(new_data[CONF_LATITUDE], 4)},{round(new_data[CONF_LONGITUDE], 4)} @ {new_data[CONF_RADIUS_KM]}km)"
 
+            new_options = dict(entry.options)
+            new_options[CONF_MESSAGE_TYPES] = new_data[CONF_MESSAGE_TYPES]
+            new_options.pop(CONF_EXCLUDED_MESSAGE_TYPES, None)
+
             return self.async_update_reload_and_abort(
                 entry=entry,
                 data=new_data,
+                options=new_options,
                 reason="reconfigured_successful",
                 title=new_title,
             )
@@ -115,6 +161,8 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {"label": "Coordinate", "value": "coordinate"},
         ]
 
+        message_options = _build_message_multiselect_options()
+
         # Conditional schema is not directly supported by selector, so we present all fields;
         # the coordinator will respect the selected mode and ignore the irrelevant ones.
         data_schema = vol.Schema(
@@ -132,6 +180,10 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Required(CONF_INCLUDE_MESSAGES, default=current_include_messages): cv.boolean,
                 vol.Required(CONF_EXCLUDE_SEA, default=current_exclude_sea): cv.boolean,
+                vol.Optional(
+                    CONF_MESSAGE_TYPES,
+                    default=current_message_types,
+                ): cv.multi_select(message_options),
             }
         )
 
@@ -143,6 +195,7 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             mode = user_input[CONF_MODE]
             language = user_input[CONF_LANGUAGE]
+            user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
             if mode == "district":
                 district = user_input[CONF_DISTRICT]
                 await self.async_set_unique_id(f"district:{district}:{language}")
@@ -189,6 +242,8 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {"label": "Coordinate", "value": "coordinate"},
         ]
 
+        message_options = _build_message_multiselect_options()
+
         data_schema = vol.Schema(
             {
                 vol.Required(CONF_MODE, default=DEFAULT_MODE): selector(
@@ -216,6 +271,10 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_INCLUDE_MESSAGES, default=DEFAULT_INCLUDE_MESSAGES
                 ): cv.boolean,
                 vol.Required(CONF_EXCLUDE_SEA, default=DEFAULT_EXCLUDE_SEA): cv.boolean,
+                vol.Optional(
+                    CONF_MESSAGE_TYPES,
+                    default=DEFAULT_MESSAGE_TYPES,
+                ): cv.multi_select(message_options),
             }
         )
 
@@ -238,6 +297,8 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
         errors = {}
         if user_input is not None:
+            user_input = dict(user_input)
+            user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
             # Map location into latitude/longitude for coordinator consumption
             data = dict(self.config_entry.options)
             data.update(user_input)
@@ -272,6 +333,9 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
             {"label": "District", "value": "district"},
             {"label": "Coordinate", "value": "coordinate"},
         ]
+
+        message_options = _build_message_multiselect_options()
+        current_message_types = _resolve_entry_message_types(self.config_entry)
 
         data_schema = vol.Schema(
             {
@@ -342,6 +406,10 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
                         self.config_entry.data.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA),
                     ),
                 ): cv.boolean,
+                vol.Optional(
+                    CONF_MESSAGE_TYPES,
+                    default=current_message_types,
+                ): cv.multi_select(message_options),
             }
         )
 
