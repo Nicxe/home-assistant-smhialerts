@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import unicodedata
 from typing import Any, Dict, List, Tuple, Optional
 from aiohttp import ClientError
 import async_timeout
@@ -24,6 +25,8 @@ from .const import (
     CONF_LONGITUDE,
     CONF_RADIUS_KM,
     CONF_EXCLUDE_SEA,
+    CONF_EXCLUDED_MESSAGE_TYPES,
+    CONF_MESSAGE_TYPES,
     DEFAULT_NAME,
     SCAN_INTERVAL,
     DISTRICTS,
@@ -31,10 +34,13 @@ from .const import (
     DEFAULT_INCLUDE_MESSAGES,
     DEFAULT_MODE,
     DEFAULT_RADIUS_KM,
+    DEFAULT_EXCLUDED_MESSAGE_TYPES,
+    DEFAULT_MESSAGE_TYPES,
     WARNINGS_URL,
     SEVERITY_ORDER,
     MARINE_AREA_IDS,
     MARINE_EVENT_CODES,
+    MESSAGE_EVENT_DEFINITIONS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,6 +82,16 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry):
     coordinator.include_messages = entry.options.get(
         CONF_INCLUDE_MESSAGES,
         entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+    )
+    coordinator.set_message_types(
+        entry.options.get(
+            CONF_MESSAGE_TYPES,
+            entry.data.get(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES),
+        ),
+        entry.options.get(
+            CONF_EXCLUDED_MESSAGE_TYPES,
+            entry.data.get(CONF_EXCLUDED_MESSAGE_TYPES, DEFAULT_EXCLUDED_MESSAGE_TYPES),
+        ),
     )
     coordinator.exclude_sea = entry.options.get(
         CONF_EXCLUDE_SEA,
@@ -189,6 +205,18 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             )
         )
         self.session = aiohttp_client.async_get_clientsession(hass)
+        self.message_types: List[str] = []
+        self._allowed_message_tokens: set[str] = set()
+        self.set_message_types(
+            entry.options.get(
+                CONF_MESSAGE_TYPES,
+                entry.data.get(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES),
+            ),
+            entry.options.get(
+                CONF_EXCLUDED_MESSAGE_TYPES,
+                entry.data.get(CONF_EXCLUDED_MESSAGE_TYPES, DEFAULT_EXCLUDED_MESSAGE_TYPES),
+            ),
+        )
         self._etag: str | None = None
         self._last_modified: str | None = None
         self._last_success: str | None = None
@@ -202,6 +230,73 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             update_interval=SCAN_INTERVAL,
             config_entry=entry,
         )
+
+    def set_message_types(
+        self,
+        values: Optional[List[str]],
+        legacy_excluded: Optional[List[str]] = None,
+    ) -> None:
+        """Update allowed message categories."""
+        allowed = self._normalize_message_types(values, legacy_excluded)
+        self.message_types = allowed
+        self._rebuild_allowed_message_tokens()
+
+    def _normalize_message_types(
+        self,
+        values: Optional[List[str]],
+        legacy_excluded: Optional[List[str]],
+    ) -> List[str]:
+        if isinstance(values, list) and values:
+            selected = [v for v in values if v in MESSAGE_EVENT_DEFINITIONS]
+        else:
+            selected = []
+        if not selected and legacy_excluded:
+            selected = [
+                code for code in DEFAULT_MESSAGE_TYPES if code not in set(legacy_excluded)
+            ]
+        if not selected:
+            selected = list(DEFAULT_MESSAGE_TYPES)
+        # Preserve order defined in DEFAULT_MESSAGE_TYPES
+        order = {code: idx for idx, code in enumerate(DEFAULT_MESSAGE_TYPES)}
+        return sorted(set(selected), key=lambda code: order.get(code, 0))
+
+    def _normalize_message_token(self, value: Optional[str]) -> str:
+        if not isinstance(value, str):
+            return ""
+        decomposed = unicodedata.normalize("NFKD", value)
+        stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+        return "".join(ch for ch in stripped.upper() if ch.isalnum())
+
+    def _rebuild_allowed_message_tokens(self) -> None:
+        tokens: set[str] = set()
+        for code in self.message_types or []:
+            definition = MESSAGE_EVENT_DEFINITIONS.get(code)
+            if not definition:
+                continue
+            for candidate in [definition["value"], *definition.get("aliases", [])]:
+                token = self._normalize_message_token(candidate)
+                if token:
+                    tokens.add(token)
+        self._allowed_message_tokens = tokens
+
+    def _should_include_message(self, event_obj: Dict[str, Any]) -> bool:
+        if not self._allowed_message_tokens:
+            return False
+        candidates: List[str] = []
+        code = event_obj.get("code")
+        if isinstance(code, str):
+            candidates.append(code)
+        for key in ("sv", "en"):
+            value = event_obj.get(key)
+            if isinstance(value, str):
+                candidates.append(value)
+        mho_code = (event_obj.get("mhoClassification") or {}).get("code")
+        if isinstance(mho_code, str):
+            candidates.append(mho_code)
+        for candidate in candidates:
+            if self._normalize_message_token(candidate) in self._allowed_message_tokens:
+                return True
+        return False
 
     async def _async_update_data(self) -> Dict[str, Any]:
         """Fetch data from SMHI with conditional requests and build derived metrics."""
@@ -228,6 +323,10 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 "filter_longitude": getattr(self, "longitude", None),
                 "filter_radius_km": getattr(self, "radius_km", None),
                 "filter_exclude_sea": getattr(self, "exclude_sea", False),
+                "filter_message_types": list(
+                    getattr(self, "message_types", DEFAULT_MESSAGE_TYPES)
+                    or DEFAULT_MESSAGE_TYPES
+                ),
             },
         }
 
@@ -248,6 +347,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                         data["attributes"]["messages"] = messages
                         data["attributes"]["notice"] = notice
                         data["attributes"].update(derived)
+                        data["attributes"]["filter_message_types"] = list(
+                            self.message_types or DEFAULT_MESSAGE_TYPES
+                        )
 
                         # Save caching headers
                         self._etag = response.headers.get("ETag")
@@ -262,6 +364,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 ).isoformat()
             except Exception:
                 data["attributes"]["last_update_local"] = None
+            data["attributes"]["filter_message_types"] = list(
+                self.message_types or DEFAULT_MESSAGE_TYPES
+            )
 
             # Reset backoff on success
             self._failure_count = 0
@@ -344,13 +449,14 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 code = str(severity_info.get("code", "")).upper()
                 severity = severity_info.get(self.language, "") or code.title()
 
-                if code == "MESSAGE" and not self.include_messages:
-                    continue
-
-                if code in ("YELLOW", "ORANGE", "RED"):
-                    warnings_count += 1
-                elif code == "MESSAGE":
+                if code == "MESSAGE":
+                    if not self.include_messages:
+                        continue
+                    if not self._should_include_message(event_obj):
+                        continue
                     messages_count += 1
+                elif code in ("YELLOW", "ORANGE", "RED"):
+                    warnings_count += 1
 
                 if SEVERITY_ORDER.index(code if code in SEVERITY_ORDER else "NONE") > SEVERITY_ORDER.index(highest_severity):
                     highest_severity = code

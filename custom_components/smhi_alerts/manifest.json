@@ -8,7 +8,7 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Nicxe/home-assistant-smhialerts/issues",
   "loggers": ["custom_components.smhi_alerts"],
-  "version": "3.1.0"
+  "version": "3.2.0"
 }
 
 

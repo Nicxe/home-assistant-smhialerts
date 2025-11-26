@@ -11,14 +11,16 @@
                     "radius_km": "Radius (km)",
                     "exclude_sea": "Exclude sea warnings",
                     "language": "Language",
-                    "include_messages": "Show messages"
+                    "include_messages": "Show messages",
+                    "message_types": "Message categories"
                 },
                 "data_description": {
                     "mode": "Choose to filter by administrative district or by a coordinate + radius.",
                     "location": "Pick a position on the map. Defaults to your Home Assistant home location.",
                     "radius_km": "Defaults to 10 km. Alerts are matched if their area passes within this radius.",
                     "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea).",
-                    "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk."
+                    "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk.",
+                    "message_types": "Choose which message categories to include when Show messages is enabled."
                 }
             },
             "reconfigure": {
@@ -31,14 +33,16 @@
                     "radius_km": "Radius (km)",
                     "exclude_sea": "Exclude sea warnings",
                     "language": "Language",
-                    "include_messages": "Show messages"
+                    "include_messages": "Show messages",
+                    "message_types": "Message categories"
                 },
                 "data_description": {
                     "mode": "Choose to filter by administrative district or by a coordinate + radius.",
                     "location": "Pick a position on the map. Defaults to your Home Assistant home location.",
                     "radius_km": "Defaults to 10 km. Alerts are matched if their area passes within this radius.",
                     "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk.",
-                    "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea)."
+                    "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea).",
+                    "message_types": "Choose which message categories to include when Show messages is enabled."
                 }
             }
         }
@@ -55,14 +59,16 @@
                     "radius_km": "Radius (km)",
                     "exclude_sea": "Exclude sea warnings",
                     "language": "Language",
-                    "include_messages": "Show messages"
+                    "include_messages": "Show messages",
+                    "message_types": "Message categories"
                 },
                 "data_description": {
                     "mode": "Choose to filter by administrative district or by a coordinate + radius.",
                     "location": "Pick a position on the map. Defaults to your Home Assistant home location.",
                     "radius_km": "Defaults to 10 km. Alerts are matched if their area passes within this radius.",
                     "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk.",
-                    "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea)."
+                    "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea).",
+                    "message_types": "Choose which message categories to include when Show messages is enabled."
                 }
             }
         }
