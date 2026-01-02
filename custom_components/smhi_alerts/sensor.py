@@ -1,11 +1,15 @@
 import logging
 import asyncio
 import unicodedata
+from datetime import timedelta
+from time import monotonic
+import random
 from typing import Any, Dict, List, Tuple, Optional
 from aiohttp import ClientError
 import async_timeout
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.const import __version__ as HA_VERSION
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -50,6 +54,8 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ):
     """Set up the sensor platform."""
+    setup_start = monotonic()
+    _LOGGER.debug("sensor.async_setup_entry start (entry_id=%s)", entry.entry_id)
     # Reuse coordinator created in __init__
     try:
         coordinator: SmhiAlertCoordinator = hass.data[DOMAIN][entry.entry_id][
@@ -62,6 +68,11 @@ async def async_setup_entry(
     sensor = SMHIAlertSensor(coordinator, entry)
     async_add_entities([sensor], True)
 
+    _LOGGER.debug(
+        "sensor.async_setup_entry done in %.3fs (entry_id=%s)",
+        monotonic() - setup_start,
+        entry.entry_id,
+    )
     return True
 
 
@@ -300,7 +311,11 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> Dict[str, Any]:
         """Fetch data from SMHI with conditional requests and build derived metrics."""
+        req_start = monotonic()
         headers: Dict[str, str] = {}
+        # Help upstream diagnose issues; also useful if SMHI applies any heuristics/rate-limits.
+        headers["User-Agent"] = f"HomeAssistant/{HA_VERSION} (custom_components.smhi_alerts)"
+        headers["Accept"] = "application/json"
         if self._etag:
             headers["If-None-Match"] = self._etag
         if self._last_modified:
@@ -331,8 +346,26 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         }
 
         try:
+            if _LOGGER.isEnabledFor(logging.DEBUG):
+                _LOGGER.debug(
+                    "Fetching SMHI warnings (mode=%s, district=%s, timeout=%ss, failure_count=%s, interval=%s, headers=%s)",
+                    getattr(self, "mode", DEFAULT_MODE),
+                    getattr(self, "district", None),
+                    15,
+                    self._failure_count,
+                    self.update_interval,
+                    {k: headers.get(k) for k in ("If-None-Match", "If-Modified-Since") if k in headers},
+                )
             async with async_timeout.timeout(15):
                 async with self.session.get(WARNINGS_URL, headers=headers) as response:
+                    if _LOGGER.isEnabledFor(logging.DEBUG):
+                        _LOGGER.debug(
+                            "SMHI response received in %.3fs (status=%s, etag=%s, last_modified=%s)",
+                            monotonic() - req_start,
+                            response.status,
+                            response.headers.get("ETag"),
+                            response.headers.get("Last-Modified"),
+                        )
                     if response.status == 304:
                         # Not modified: just update timestamp
                         data.update(self.data or {})
@@ -371,13 +404,32 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             # Reset backoff on success
             self._failure_count = 0
             self.update_interval = self._base_interval
+            if _LOGGER.isEnabledFor(logging.DEBUG):
+                _LOGGER.debug(
+                    "SMHI update success in %.3fs (warnings=%s, messages=%s, alerts=%s)",
+                    monotonic() - req_start,
+                    data["attributes"].get("warnings_count"),
+                    data["attributes"].get("messages_count"),
+                    data["attributes"].get("alerts_count"),
+                )
             return data
 
+        except asyncio.CancelledError:
+            # Allow Home Assistant to cancel updates cleanly (shutdown/reload)
+            raise
         except (ClientError, asyncio.TimeoutError) as err:
             # Exponential backoff
             self._failure_count += 1
             self._apply_backoff()
-            raise UpdateFailed(f"Communication error: {err}") from err
+            detail = str(err) or err.__class__.__name__
+            _LOGGER.debug(
+                "SMHI fetch failed in %.3fs (%s); applying backoff to interval=%s (failure_count=%s)",
+                monotonic() - req_start,
+                detail,
+                self.update_interval,
+                self._failure_count,
+            )
+            raise UpdateFailed(f"Communication error: {detail}") from err
         except ValueError as err:
             self._failure_count += 1
             self._apply_backoff()
@@ -392,7 +444,20 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         factor = min(self._failure_count, 5)
         seconds = self._base_interval.total_seconds() * (2 ** factor)
         max_seconds = 60 * 60
-        self.update_interval = dt_util.timedelta(seconds=min(seconds, max_seconds))
+        capped_seconds = min(seconds, max_seconds)
+        # Add a little jitter so multiple instances don't retry in lock-step.
+        jitter = random.uniform(0, min(5.0, capped_seconds * 0.05))
+        new_interval = timedelta(seconds=capped_seconds + jitter)
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            _LOGGER.debug(
+                "Backoff update_interval: base=%s failure_count=%s seconds=%.3f jitter=%.3f -> %s",
+                self._base_interval,
+                self._failure_count,
+                capped_seconds,
+                jitter,
+                new_interval,
+            )
+        self.update_interval = new_interval
 
     def _process_data(self, data: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
         """Process data, compute derived metrics, and build messages and notice."""
