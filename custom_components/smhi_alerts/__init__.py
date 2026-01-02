@@ -2,6 +2,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 import homeassistant.helpers.config_validation as cv
+import logging
+from time import monotonic
 
 from .const import (
     DOMAIN,
@@ -25,6 +27,8 @@ from .const import (
 )
 from .sensor import SmhiAlertCoordinator
 
+_LOGGER = logging.getLogger(__name__)
+
 PLATFORMS: list[str] = ["sensor", "binary_sensor"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -43,8 +47,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Create shared coordinator once and store it for all platforms
     coordinator = SmhiAlertCoordinator(hass, entry)
     try:
+        start = monotonic()
+        _LOGGER.debug(
+            "Starting coordinator first refresh (entry_id=%s, name=%s)",
+            entry.entry_id,
+            entry.title,
+        )
         await coordinator.async_config_entry_first_refresh()
+        _LOGGER.debug(
+            "Coordinator first refresh done in %.3fs (entry_id=%s)",
+            monotonic() - start,
+            entry.entry_id,
+        )
     except Exception as ex:
+        _LOGGER.debug(
+            "Coordinator first refresh failed after %.3fs (entry_id=%s): %s",
+            monotonic() - start,
+            entry.entry_id,
+            ex,
+        )
         raise ConfigEntryNotReady from ex
 
     hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}

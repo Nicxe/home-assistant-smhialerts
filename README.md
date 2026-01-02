@@ -1,10 +1,13 @@
 # Home Assistant - SMHI Weather Warnings & Alerts
 
-<a href="https://buymeacoffee.com/niklasv" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
+[![Buy me a Coffee](https://img.shields.io/badge/Support-Buy%20me%20a%20coffee-fdd734?logo=buy-me-a-coffee)](ttps://www.buymeacoffee.com/NiklasV) [![Last commit](https://img.shields.io/github/last-commit/Nicxe/home-assistant-smhialerts)](#) [![Version](https://img.shields.io/github/v/release/Nicxe/home-assistant-smhialerts)](#) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/nicxe/home-assistant-smhialerts/latest/total)
 
+<<<<<<< Updated upstream
 ![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=)
 <img alt="Maintenance" src="https://img.shields.io/maintenance/yes/2026"> <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/Nicxe/home-assistant-smhialerts"><br><br>
 <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/Nicxe/home-assistant-smhialerts">
+=======
+>>>>>>> Stashed changes
 
 ## Overview
 
