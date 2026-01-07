@@ -12,6 +12,7 @@
                     "exclude_sea": "Exkludera varningar till havs",
                     "language": "Språk",
                     "include_messages": "Visa meddelanden",
+                    "include_geometry": "Inkludera geometri (kartpolygoner)",
                     "message_types": "Meddelandekategorier"
                 },
                 "data_description": {
@@ -20,6 +21,7 @@
                     "radius_km": "Standard är 10 km. Varningar matchas om deras område passerar inom denna radie.",
                     "exclude_sea": "Exkludera marina varningar (t.ex. högt vattenstånd, medelvind till havs).",
                     "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk.",
+                    "include_geometry": "Bifoga GeoJSON-geometri för varje varningsområde i sensorns attribut så att UI-kort kan rita det berörda området. Detta kan öka storleken på entity state.",
                     "message_types": "Välj vilka meddelandekategorier som ska inkluderas när Visa meddelanden är aktivt."
                 }
             },
@@ -34,6 +36,7 @@
                     "exclude_sea": "Exkludera varningar till havs",
                     "language": "Språk",
                     "include_messages": "Visa meddelanden",
+                    "include_geometry": "Inkludera geometri (kartpolygoner)",
                     "message_types": "Meddelandekategorier"
                 },
                 "data_description": {
@@ -42,6 +45,7 @@
                     "longitude": "Standard hämtas från Home Assistants hem-longitud.",
                     "radius_km": "Standard är 10 km. Varningar matchas om deras område passerar inom denna radie.",
                     "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk.",
+                    "include_geometry": "Bifoga GeoJSON-geometri för varje varningsområde i sensorns attribut så att UI-kort kan rita det berörda området. Detta kan öka storleken på entity state.",
                     "message_types": "Välj vilka meddelandekategorier som ska inkluderas när Visa meddelanden är aktivt."
                 }
             }
@@ -60,6 +64,7 @@
                     "radius_km": "Radie (km)",
                     "language": "Språk",
                     "include_messages": "Visa meddelanden",
+                    "include_geometry": "Inkludera geometri (kartpolygoner)",
                     "message_types": "Meddelandekategorier"
                 },
                 "data_description": {
@@ -68,6 +73,7 @@
                     "radius_km": "Standard är 10 km. Varningar matchas om deras område passerar inom denna radie.",
                     "include_messages": "Integrationen visar alltid varningar. Aktivera detta alternativ för att även visa meddelanden, som kan vara exempelvis en risk.",
                     "exclude_sea": "Exkludera marina varningar (t.ex. högt vattenstånd, medelvind till havs).",
+                    "include_geometry": "Bifoga GeoJSON-geometri för varje varningsområde i sensorns attribut så att UI-kort kan rita det berörda området. Detta kan öka storleken på entity state.",
                     "message_types": "Välj vilka meddelandekategorier som ska inkluderas när Visa meddelanden är aktivt."
                 }
             }

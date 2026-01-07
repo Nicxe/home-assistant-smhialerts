@@ -12,6 +12,7 @@
                     "exclude_sea": "Exclude sea warnings",
                     "language": "Language",
                     "include_messages": "Show messages",
+                    "include_geometry": "Include geometry (map polygons)",
                     "message_types": "Message categories"
                 },
                 "data_description": {
@@ -20,6 +21,7 @@
                     "radius_km": "Defaults to 10 km. Alerts are matched if their area passes within this radius.",
                     "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea).",
                     "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk.",
+                    "include_geometry": "Attach GeoJSON geometry for each warning area to the sensor attributes so UI cards can draw the affected area. This can increase entity state size.",
                     "message_types": "Choose which message categories to include when Show messages is enabled."
                 }
             },
@@ -34,6 +36,7 @@
                     "exclude_sea": "Exclude sea warnings",
                     "language": "Language",
                     "include_messages": "Show messages",
+                    "include_geometry": "Include geometry (map polygons)",
                     "message_types": "Message categories"
                 },
                 "data_description": {
@@ -42,6 +45,7 @@
                     "radius_km": "Defaults to 10 km. Alerts are matched if their area passes within this radius.",
                     "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk.",
                     "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea).",
+                    "include_geometry": "Attach GeoJSON geometry for each warning area to the sensor attributes so UI cards can draw the affected area. This can increase entity state size.",
                     "message_types": "Choose which message categories to include when Show messages is enabled."
                 }
             }
@@ -60,6 +64,7 @@
                     "exclude_sea": "Exclude sea warnings",
                     "language": "Language",
                     "include_messages": "Show messages",
+                    "include_geometry": "Include geometry (map polygons)",
                     "message_types": "Message categories"
                 },
                 "data_description": {
@@ -68,6 +73,7 @@
                     "radius_km": "Defaults to 10 km. Alerts are matched if their area passes within this radius.",
                     "include_messages": "The integration always shows warnings. Enable this option to also show messages, which can, for example, be a risk.",
                     "exclude_sea": "Exclude marine warnings (e.g., sea level, wind at sea).",
+                    "include_geometry": "Attach GeoJSON geometry for each warning area to the sensor attributes so UI cards can draw the affected area. This can increase entity state size.",
                     "message_types": "Choose which message categories to include when Show messages is enabled."
                 }
             }

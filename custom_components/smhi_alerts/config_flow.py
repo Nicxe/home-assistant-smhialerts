@@ -10,6 +10,8 @@ from .const import (
     DEFAULT_LANGUAGE,
     CONF_INCLUDE_MESSAGES,
     DEFAULT_INCLUDE_MESSAGES,
+    CONF_INCLUDE_GEOMETRY,
+    DEFAULT_INCLUDE_GEOMETRY,
     AREAS_URL,
     CONF_MODE,
     CONF_LATITUDE,
@@ -64,7 +66,7 @@ def _resolve_entry_message_types(entry):
 class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SMHI Alerts."""
 
-    VERSION = 3
+    VERSION = 4
 
     async def async_step_reconfigure(self, user_input=None):
         """Handle reconfigure initiated from the UI on an existing entry."""
@@ -80,6 +82,10 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         current_include_messages = entry.options.get(
             CONF_INCLUDE_MESSAGES,
             entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+        )
+        current_include_geometry = entry.options.get(
+            CONF_INCLUDE_GEOMETRY,
+            entry.data.get(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY),
         )
         current_lat = entry.options.get(CONF_LATITUDE, entry.data.get(CONF_LATITUDE, self.hass.config.latitude))
         current_lon = entry.options.get(CONF_LONGITUDE, entry.data.get(CONF_LONGITUDE, self.hass.config.longitude))
@@ -105,6 +111,7 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_MODE: user_input[CONF_MODE],
                 CONF_LANGUAGE: user_input[CONF_LANGUAGE],
                 CONF_INCLUDE_MESSAGES: user_input.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+                CONF_INCLUDE_GEOMETRY: user_input.get(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY),
                 CONF_MESSAGE_TYPES: user_input.get(
                     CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES
                 ),
@@ -179,6 +186,7 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     {"select": {"options": language_options, "mode": "dropdown"}}
                 ),
                 vol.Required(CONF_INCLUDE_MESSAGES, default=current_include_messages): cv.boolean,
+                vol.Required(CONF_INCLUDE_GEOMETRY, default=current_include_geometry): cv.boolean,
                 vol.Required(CONF_EXCLUDE_SEA, default=current_exclude_sea): cv.boolean,
                 vol.Optional(
                     CONF_MESSAGE_TYPES,
@@ -196,6 +204,7 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             mode = user_input[CONF_MODE]
             language = user_input[CONF_LANGUAGE]
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
+            user_input.setdefault(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY)
             if mode == "district":
                 district = user_input[CONF_DISTRICT]
                 await self.async_set_unique_id(f"district:{district}:{language}")
@@ -270,6 +279,9 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_INCLUDE_MESSAGES, default=DEFAULT_INCLUDE_MESSAGES
                 ): cv.boolean,
+                vol.Required(
+                    CONF_INCLUDE_GEOMETRY, default=DEFAULT_INCLUDE_GEOMETRY
+                ): cv.boolean,
                 vol.Required(CONF_EXCLUDE_SEA, default=DEFAULT_EXCLUDE_SEA): cv.boolean,
                 vol.Optional(
                     CONF_MESSAGE_TYPES,
@@ -299,6 +311,7 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             user_input = dict(user_input)
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
+            user_input.setdefault(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY)
             # Map location into latitude/longitude for coordinator consumption
             data = dict(self.config_entry.options)
             data.update(user_input)
@@ -396,6 +409,15 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_INCLUDE_MESSAGES,
                         self.config_entry.data.get(
                             CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES
+                        ),
+                    ),
+                ): cv.boolean,
+                vol.Optional(
+                    CONF_INCLUDE_GEOMETRY,
+                    default=self.config_entry.options.get(
+                        CONF_INCLUDE_GEOMETRY,
+                        self.config_entry.data.get(
+                            CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY
                         ),
                     ),
                 ): cv.boolean,

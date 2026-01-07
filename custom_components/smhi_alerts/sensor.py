@@ -24,6 +24,7 @@ from .const import (
     CONF_DISTRICT,
     CONF_LANGUAGE,
     CONF_INCLUDE_MESSAGES,
+    CONF_INCLUDE_GEOMETRY,
     CONF_MODE,
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -36,6 +37,7 @@ from .const import (
     DISTRICTS,
     DEFAULT_LANGUAGE,
     DEFAULT_INCLUDE_MESSAGES,
+    DEFAULT_INCLUDE_GEOMETRY,
     DEFAULT_MODE,
     DEFAULT_RADIUS_KM,
     DEFAULT_EXCLUDED_MESSAGE_TYPES,
@@ -93,6 +95,10 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry):
     coordinator.include_messages = entry.options.get(
         CONF_INCLUDE_MESSAGES,
         entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+    )
+    coordinator.include_geometry = entry.options.get(
+        CONF_INCLUDE_GEOMETRY,
+        entry.data.get(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY),
     )
     coordinator.set_message_types(
         entry.options.get(
@@ -167,13 +173,10 @@ class SMHIAlertSensor(CoordinatorEntity, SensorEntity):
             return f"{DEFAULT_NAME} ({DISTRICTS.get(district, district)})"
 
     def _derive_unique_id(self) -> str:
-        if getattr(self.coordinator, "mode", DEFAULT_MODE) == "coordinate":
-            lat = round(getattr(self.coordinator, "latitude", 0.0), 4)
-            lon = round(getattr(self.coordinator, "longitude", 0.0), 4)
-            r = int(round(getattr(self.coordinator, "radius_km", DEFAULT_RADIUS_KM)))
-            return f"{self.entry.entry_id}_smhi_alert_sensor_coord_{lat}_{lon}_{r}km"
-        else:
-            return f"{self.entry.entry_id}_smhi_alert_sensor_{self.coordinator.district}"
+        # IMPORTANT: unique_id must be stable for the lifetime of the config entry.
+        # Do NOT include user-configurable settings (district/coordinates/radius/language/geometry),
+        # otherwise HA will create new entities when those settings change.
+        return f"{self.entry.entry_id}_smhi_alert_sensor"
 
 
 class SmhiAlertCoordinator(DataUpdateCoordinator):
@@ -195,6 +198,10 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         self.include_messages = entry.options.get(
             CONF_INCLUDE_MESSAGES,
             entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+        )
+        self.include_geometry = entry.options.get(
+            CONF_INCLUDE_GEOMETRY,
+            entry.data.get(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY),
         )
         self.exclude_sea = entry.options.get(
             CONF_EXCLUDE_SEA,
@@ -338,6 +345,7 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 "filter_longitude": getattr(self, "longitude", None),
                 "filter_radius_km": getattr(self, "radius_km", None),
                 "filter_exclude_sea": getattr(self, "exclude_sea", False),
+                "filter_include_geometry": getattr(self, "include_geometry", False),
                 "filter_message_types": list(
                     getattr(self, "message_types", DEFAULT_MESSAGE_TYPES)
                     or DEFAULT_MESSAGE_TYPES
@@ -574,6 +582,12 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                     "area": ", ".join(valid_areas),
                     "event_color": self._get_event_color(code),
                 }
+                # Optional: include geometry (GeoJSON) for the warning area so UI cards can render a map.
+                # This can be large, so it's opt-in via config/options.
+                if getattr(self, "include_geometry", False):
+                    geom = area.get("area")
+                    if geom:
+                        msg["geometry"] = geom
 
                 messages.append(msg)
                 notice_lines.append(self._format_notice(msg))
