@@ -24,6 +24,7 @@ from .const import (
     CONF_DISTRICT,
     CONF_LANGUAGE,
     CONF_INCLUDE_MESSAGES,
+    CONF_INCLUDE_GEOMETRY,
     CONF_MODE,
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -36,6 +37,7 @@ from .const import (
     DISTRICTS,
     DEFAULT_LANGUAGE,
     DEFAULT_INCLUDE_MESSAGES,
+    DEFAULT_INCLUDE_GEOMETRY,
     DEFAULT_MODE,
     DEFAULT_RADIUS_KM,
     DEFAULT_EXCLUDED_MESSAGE_TYPES,
@@ -93,6 +95,10 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry):
     coordinator.include_messages = entry.options.get(
         CONF_INCLUDE_MESSAGES,
         entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+    )
+    coordinator.include_geometry = entry.options.get(
+        CONF_INCLUDE_GEOMETRY,
+        entry.data.get(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY),
     )
     coordinator.set_message_types(
         entry.options.get(
@@ -195,6 +201,10 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         self.include_messages = entry.options.get(
             CONF_INCLUDE_MESSAGES,
             entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+        )
+        self.include_geometry = entry.options.get(
+            CONF_INCLUDE_GEOMETRY,
+            entry.data.get(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY),
         )
         self.exclude_sea = entry.options.get(
             CONF_EXCLUDE_SEA,
@@ -338,6 +348,7 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 "filter_longitude": getattr(self, "longitude", None),
                 "filter_radius_km": getattr(self, "radius_km", None),
                 "filter_exclude_sea": getattr(self, "exclude_sea", False),
+                "filter_include_geometry": getattr(self, "include_geometry", False),
                 "filter_message_types": list(
                     getattr(self, "message_types", DEFAULT_MESSAGE_TYPES)
                     or DEFAULT_MESSAGE_TYPES
@@ -574,6 +585,12 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                     "area": ", ".join(valid_areas),
                     "event_color": self._get_event_color(code),
                 }
+                # Optional: include geometry (GeoJSON) for the warning area so UI cards can render a map.
+                # This can be large, so it's opt-in via config/options.
+                if getattr(self, "include_geometry", False):
+                    geom = area.get("area")
+                    if geom:
+                        msg["geometry"] = geom
 
                 messages.append(msg)
                 notice_lines.append(self._format_notice(msg))

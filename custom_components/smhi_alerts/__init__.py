@@ -10,8 +10,10 @@ from .const import (
     CONF_DISTRICT,
     CONF_LANGUAGE,
     CONF_INCLUDE_MESSAGES,
+    CONF_INCLUDE_GEOMETRY,
     DEFAULT_LANGUAGE,
     DEFAULT_INCLUDE_MESSAGES,
+    DEFAULT_INCLUDE_GEOMETRY,
     CONF_MODE,
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -87,6 +89,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         coord.include_messages = updated_entry.options.get(
             CONF_INCLUDE_MESSAGES,
             updated_entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
+        )
+        coord.include_geometry = updated_entry.options.get(
+            CONF_INCLUDE_GEOMETRY,
+            updated_entry.data.get(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY),
         )
         coord.set_message_types(
             updated_entry.options.get(
