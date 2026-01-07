@@ -66,12 +66,9 @@ class SMHIAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
             return f"{DEFAULT_NAME} active ({DISTRICTS.get(self.district, self.district)})"
 
     def _derive_unique_id(self) -> str:
-        if getattr(self.coordinator, "mode", DEFAULT_MODE) == "coordinate":
-            lat = round(getattr(self.coordinator, "latitude", 0.0), 4)
-            lon = round(getattr(self.coordinator, "longitude", 0.0), 4)
-            r = int(round(getattr(self.coordinator, "radius_km", DEFAULT_RADIUS_KM)))
-            return f"{self.entry.entry_id}_smhi_alert_active_coord_{lat}_{lon}_{r}km"
-        else:
-            return f"{self.entry.entry_id}_smhi_alert_active_{self.district}"
+        # IMPORTANT: unique_id must be stable for the lifetime of the config entry.
+        # Do NOT include user-configurable settings (district/coordinates/radius/language/geometry),
+        # otherwise HA will create new entities when those settings change.
+        return f"{self.entry.entry_id}_smhi_alert_active"
 
 

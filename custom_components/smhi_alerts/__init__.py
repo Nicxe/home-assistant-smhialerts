@@ -5,6 +5,8 @@ import homeassistant.helpers.config_validation as cv
 import logging
 from time import monotonic
 
+from homeassistant.helpers import entity_registry as er
+
 from .const import (
     DOMAIN,
     CONF_DISTRICT,
@@ -179,6 +181,47 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data.pop(CONF_EXCLUDED_MESSAGE_TYPES, None)
         options.pop(CONF_EXCLUDED_MESSAGE_TYPES, None)
         version = 3
+        updated = True
+
+    if version < 4:
+        # v4: Stabilize entity unique_id so changing options (including geometry) doesn't create new entities.
+        # Old versions derived unique_id from district/coordinates, which caused HA to create new entities
+        # on reload when those settings changed or were normalized.
+        ent_reg = er.async_get(hass)
+
+        def _pick_best(candidates: list[er.RegistryEntry]) -> er.RegistryEntry | None:
+            # Prefer the "primary" entity_id (avoid _2 suffix etc) so existing dashboards keep working.
+            if not candidates:
+                return None
+            def rank(e: er.RegistryEntry) -> tuple[int, str]:
+                # Lower is better.
+                eid = e.entity_id or ""
+                # crude heuristic: entities ending with _2/_3 are likely duplicates.
+                dup = 1 if eid.rsplit("_", 1)[-1].isdigit() else 0
+                return (dup, eid)
+            return sorted(candidates, key=rank)[0]
+
+        def _migrate_platform(domain: str, prefix: str, target_unique_id: str) -> None:
+            # If already migrated, do nothing.
+            if any(e.unique_id == target_unique_id for e in er.async_entries_for_config_entry(ent_reg, entry.entry_id)):
+                return
+            candidates = [
+                e for e in er.async_entries_for_config_entry(ent_reg, entry.entry_id)
+                if e.domain == domain and isinstance(e.unique_id, str) and e.unique_id.startswith(prefix)
+            ]
+            chosen = _pick_best(candidates)
+            if not chosen:
+                return
+            try:
+                ent_reg.async_update_entity(chosen.entity_id, new_unique_id=target_unique_id)
+            except TypeError:
+                # Older HA versions may not support new_unique_id; in that case we can't auto-migrate.
+                _LOGGER.debug("Entity registry does not support new_unique_id; skipping unique_id migration")
+
+        _migrate_platform("sensor", f"{entry.entry_id}_smhi_alert_sensor", f"{entry.entry_id}_smhi_alert_sensor")
+        _migrate_platform("binary_sensor", f"{entry.entry_id}_smhi_alert_active", f"{entry.entry_id}_smhi_alert_active")
+
+        version = 4
         updated = True
 
     if updated:

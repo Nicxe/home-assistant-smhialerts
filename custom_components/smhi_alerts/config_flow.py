@@ -66,7 +66,7 @@ def _resolve_entry_message_types(entry):
 class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SMHI Alerts."""
 
-    VERSION = 3
+    VERSION = 4
 
     async def async_step_reconfigure(self, user_input=None):
         """Handle reconfigure initiated from the UI on an existing entry."""

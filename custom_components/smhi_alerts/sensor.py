@@ -173,13 +173,10 @@ class SMHIAlertSensor(CoordinatorEntity, SensorEntity):
             return f"{DEFAULT_NAME} ({DISTRICTS.get(district, district)})"
 
     def _derive_unique_id(self) -> str:
-        if getattr(self.coordinator, "mode", DEFAULT_MODE) == "coordinate":
-            lat = round(getattr(self.coordinator, "latitude", 0.0), 4)
-            lon = round(getattr(self.coordinator, "longitude", 0.0), 4)
-            r = int(round(getattr(self.coordinator, "radius_km", DEFAULT_RADIUS_KM)))
-            return f"{self.entry.entry_id}_smhi_alert_sensor_coord_{lat}_{lon}_{r}km"
-        else:
-            return f"{self.entry.entry_id}_smhi_alert_sensor_{self.coordinator.district}"
+        # IMPORTANT: unique_id must be stable for the lifetime of the config entry.
+        # Do NOT include user-configurable settings (district/coordinates/radius/language/geometry),
+        # otherwise HA will create new entities when those settings change.
+        return f"{self.entry.entry_id}_smhi_alert_sensor"
 
 
 class SmhiAlertCoordinator(DataUpdateCoordinator):
