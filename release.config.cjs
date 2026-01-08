@@ -37,8 +37,13 @@ module.exports = {
         },
         writerOpts: {
           mainTemplate,
+          groupBy: "type",
+          commitGroupsSort: "title",
+          commitsSort: ["scope", "subject"],
           transform: (commit) => {
-            if (commit.type) {
+            if (!commit.type) {
+              commit.type = "other";
+            } else {
               commit.type = commit.type.toLowerCase();
             }
 
@@ -48,13 +53,11 @@ module.exports = {
               commit.commit?.committer?.date ||
               commit.commit?.author?.date;
 
-            let date = new Date(rawDate);
+            const date = new Date(rawDate);
+            commit.committerDate = Number.isNaN(date.getTime())
+              ? new Date().toISOString()
+              : date.toISOString();
 
-            if (Number.isNaN(date.getTime())) {
-              date = new Date();
-            }
-
-            commit.committerDate = date.toISOString();
             return commit;
           }
         }
