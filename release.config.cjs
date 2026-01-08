@@ -52,7 +52,9 @@ module.exports = {
     [
       "@semantic-release/exec",
       {
-        generateNotesCmd: `node .release/generate-notes.js "${nextRelease.version}" "${branch.name}" "${integration}"`
+        // Note: semantic-release variables must be passed as literals, not evaluated by Node.
+        // We escape ${...} so semantic-release can substitute them at runtime.
+        generateNotesCmd: `node .release/generate-notes.js "\${nextRelease.version}" "\${branch.name}" "${integration}"`
       }
     ],
 
@@ -60,10 +62,10 @@ module.exports = {
     [
       "@semantic-release/exec",
       {
-        prepareCmd: `set -euo pipefail; \\
-          tmpfile=$(mktemp); \\
-          jq '.version = "${nextRelease.version}"' "${manifestPath}" > "$tmpfile"; \\
-          mv "$tmpfile" "${manifestPath}"; \\
+        prepareCmd: `set -euo pipefail; \
+          tmpfile=$(mktemp); \
+          jq --arg version "\${nextRelease.version}" '.version = $version' "${manifestPath}" > "$tmpfile"; \
+          mv "$tmpfile" "${manifestPath}"; \
           (cd "${COMPONENTS_DIR}" && zip -r "${integration}.zip" "${integration}")`
       }
     ],
