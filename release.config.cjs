@@ -103,6 +103,7 @@ module.exports = {
       "@semantic-release/github",
       {
         draftRelease: true,
+        commentOnSuccess: false,
         assets: [
           {
             path: "custom_components/smhi_alerts.zip",
