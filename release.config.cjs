@@ -1,10 +1,12 @@
-const fs = require("fs");
-const path = require("path");
+const { execSync } = require("child_process");
 
-const mainTemplate = fs.readFileSync(
-  path.join(__dirname, ".release", "release-notes.hbs"),
-  "utf8"
-);
+const integration = process.env.INTEGRATION_NAME;
+
+if (!integration) {
+  throw new Error(
+    "INTEGRATION_NAME is not set. Example: INTEGRATION_NAME=smhialerts"
+  );
+}
 
 module.exports = {
   tagFormat: "v${version}",
@@ -21,19 +23,10 @@ module.exports = {
     ],
 
     [
-      "@semantic-release/release-notes-generator",
+      "@semantic-release/exec",
       {
-        preset: "conventionalcommits",
-        writerOpts: {
-          mainTemplate,
-
-          // 🔒 KRITISKT: skyddar mot trasiga commits
-          transform: (commit) => {
-            delete commit.committerDate;
-            delete commit.commitDate;
-            return commit;
-          }
-        }
+        generateNotesCmd:
+          "node .release/generate-notes.js \"${nextRelease.version}\" \"${branch.name}\""
       }
     ],
 
@@ -41,9 +34,16 @@ module.exports = {
       "@semantic-release/exec",
       {
         prepareCmd:
-          "jq '.version = \"${nextRelease.version}\"' custom_components/<integration_name>/manifest.json > manifest.tmp && " +
-          "mv manifest.tmp custom_components/<integration_name>/manifest.json && " +
-          "cd custom_components && zip -r <integration_name>.zip <integration_name>"
+          "jq '.version = \"${nextRelease.version}\"' custom_components/" +
+          integration +
+          "/manifest.json > manifest.tmp && " +
+          "mv manifest.tmp custom_components/" +
+          integration +
+          "/manifest.json && " +
+          "cd custom_components && zip -r " +
+          integration +
+          ".zip " +
+          integration
       }
     ],
 
@@ -51,10 +51,11 @@ module.exports = {
       "@semantic-release/github",
       {
         draft: true,
+        releaseNotesFile: "RELEASE_NOTES.md",
         assets: [
           {
-            path: "custom_components/<integration_name>.zip",
-            label: "<integration_name>.zip"
+            path: "custom_components/${process.env.INTEGRATION_NAME}.zip",
+            label: "${process.env.INTEGRATION_NAME}.zip"
           }
         ]
       }
