@@ -43,7 +43,7 @@ module.exports = {
       "@semantic-release/exec",
       {
         prepareCmd:
-          "jq '.version = \"${nextRelease.version}\"' custom_components/f1_sensor/manifest.json > manifest.tmp && mv manifest.tmp custom_components/f1_sensor/manifest.json && cd custom_components && zip -r f1_sensor.zip f1_sensor"
+          "jq '.version = \"${nextRelease.version}\"' custom_components/smhi_alerts/manifest.json > manifest.tmp && mv manifest.tmp custom_components/smhi_alerts/manifest.json && cd custom_components && zip -r smhi_alerts.zip smhi_alerts"
       }
     ],
 
@@ -53,8 +53,8 @@ module.exports = {
         draftRelease: true,
         assets: [
           {
-            path: "custom_components/f1_sensor.zip",
-            label: "f1_sensor.zip"
+            path: "custom_components/smhi_alerts.zip",
+            label: "smhi_alerts.zip"
           }
         ]
       }
