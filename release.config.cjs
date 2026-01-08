@@ -20,24 +20,17 @@ module.exports = {
       { preset: "conventionalcommits" }
     ],
 
+
     [
       "@semantic-release/release-notes-generator",
       {
         preset: "conventionalcommits",
         writerOpts: {
-          mainTemplate,
-          commitPartial: "- {{subject}}",
-          headerPartial: "",
-          footerPartial: "",
-          transform: (commit) => {
-            // Rensa bort datum helt
-            delete commit.committerDate;
-            delete commit.commitDate;
-            return commit;
-          }
+          mainTemplate
         }
       }
     ],
+
 
     [
       "@semantic-release/exec",
