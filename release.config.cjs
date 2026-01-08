@@ -1,38 +1,10 @@
 const fs = require("fs");
 const path = require("path");
 
-const COMPONENTS_DIR = process.env.COMPONENTS_DIR || "custom_components";
-
-function detectSingleIntegrationName() {
-  try {
-    const dir = path.join(process.cwd(), COMPONENTS_DIR);
-    const entries = fs
-      .readdirSync(dir, { withFileTypes: true })
-      .filter((e) => e.isDirectory())
-      .map((e) => e.name)
-      .filter((name) => !name.startsWith("."));
-
-    // If exactly one folder exists under custom_components, assume it is the integration.
-    if (entries.length === 1) return entries[0];
-
-    return null;
-  } catch (err) {
-    return null;
-  }
-}
-
-const integration =
-  process.env.INTEGRATION_NAME ||
-  detectSingleIntegrationName();
-
-if (!integration) {
-  throw new Error(
-    "Could not determine integration name. Set INTEGRATION_NAME (e.g. INTEGRATION_NAME=smhialerts) or ensure exactly one folder exists under custom_components."
-  );
-}
-
-const manifestPath = path.join(COMPONENTS_DIR, integration, "manifest.json");
-const zipPath = path.join(COMPONENTS_DIR, `${integration}.zip`);
+const mainTemplate = fs.readFileSync(
+  path.join(__dirname, ".release", "release-notes.hbs"),
+  "utf8"
+);
 
 module.exports = {
   tagFormat: "v${version}",
@@ -48,37 +20,41 @@ module.exports = {
       { preset: "conventionalcommits" }
     ],
 
-    // Generate RELEASE_NOTES.md via your script (avoids conventional-changelog date parsing issues)
     [
-      "@semantic-release/exec",
+      "@semantic-release/release-notes-generator",
       {
-        // Note: semantic-release variables must be passed as literals, not evaluated by Node.
-        // We escape ${...} so semantic-release can substitute them at runtime.
-        generateNotesCmd: `node .release/generate-notes.js "\${nextRelease.version}" "\${branch.name}" "${integration}"`
+        preset: "conventionalcommits",
+        writerOpts: {
+          mainTemplate,
+          commitPartial: "- {{subject}}",
+          headerPartial: "",
+          footerPartial: "",
+          transform: (commit) => {
+            // Rensa bort datum helt
+            delete commit.committerDate;
+            delete commit.commitDate;
+            return commit;
+          }
+        }
       }
     ],
 
-    // 1) bump manifest.json version  2) build zip asset
     [
       "@semantic-release/exec",
       {
-        prepareCmd: `set -euo pipefail; \
-          tmpfile=$(mktemp); \
-          jq --arg version "\${nextRelease.version}" '.version = $version' "${manifestPath}" > "$tmpfile"; \
-          mv "$tmpfile" "${manifestPath}"; \
-          (cd "${COMPONENTS_DIR}" && zip -r "${integration}.zip" "${integration}")`
+        prepareCmd:
+          "jq '.version = \"${nextRelease.version}\"' custom_components/f1_sensor/manifest.json > manifest.tmp && mv manifest.tmp custom_components/f1_sensor/manifest.json && cd custom_components && zip -r f1_sensor.zip f1_sensor"
       }
     ],
 
     [
       "@semantic-release/github",
       {
-        draft: true,
-        releaseNotesFile: "RELEASE_NOTES.md",
+        draftRelease: true,
         assets: [
           {
-            path: zipPath,
-            label: `${integration}.zip`
+            path: "custom_components/f1_sensor.zip",
+            label: "f1_sensor.zip"
           }
         ]
       }
