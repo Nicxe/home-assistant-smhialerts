@@ -1,12 +1,38 @@
-const { execSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 
-const integration = process.env.INTEGRATION_NAME;
+const COMPONENTS_DIR = process.env.COMPONENTS_DIR || "custom_components";
+
+function detectSingleIntegrationName() {
+  try {
+    const dir = path.join(process.cwd(), COMPONENTS_DIR);
+    const entries = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .filter((name) => !name.startsWith("."));
+
+    // If exactly one folder exists under custom_components, assume it is the integration.
+    if (entries.length === 1) return entries[0];
+
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
+const integration =
+  process.env.INTEGRATION_NAME ||
+  detectSingleIntegrationName();
 
 if (!integration) {
   throw new Error(
-    "INTEGRATION_NAME is not set. Example: INTEGRATION_NAME=smhialerts"
+    "Could not determine integration name. Set INTEGRATION_NAME (e.g. INTEGRATION_NAME=smhialerts) or ensure exactly one folder exists under custom_components."
   );
 }
+
+const manifestPath = path.join(COMPONENTS_DIR, integration, "manifest.json");
+const zipPath = path.join(COMPONENTS_DIR, `${integration}.zip`);
 
 module.exports = {
   tagFormat: "v${version}",
@@ -22,28 +48,23 @@ module.exports = {
       { preset: "conventionalcommits" }
     ],
 
+    // Generate RELEASE_NOTES.md via your script (avoids conventional-changelog date parsing issues)
     [
       "@semantic-release/exec",
       {
-        generateNotesCmd:
-          "node .release/generate-notes.js \"${nextRelease.version}\" \"${branch.name}\""
+        generateNotesCmd: `node .release/generate-notes.js "${nextRelease.version}" "${branch.name}" "${integration}"`
       }
     ],
 
+    // 1) bump manifest.json version  2) build zip asset
     [
       "@semantic-release/exec",
       {
-        prepareCmd:
-          "jq '.version = \"${nextRelease.version}\"' custom_components/" +
-          integration +
-          "/manifest.json > manifest.tmp && " +
-          "mv manifest.tmp custom_components/" +
-          integration +
-          "/manifest.json && " +
-          "cd custom_components && zip -r " +
-          integration +
-          ".zip " +
-          integration
+        prepareCmd: `set -euo pipefail; \\
+          tmpfile=$(mktemp); \\
+          jq '.version = "${nextRelease.version}"' "${manifestPath}" > "$tmpfile"; \\
+          mv "$tmpfile" "${manifestPath}"; \\
+          (cd "${COMPONENTS_DIR}" && zip -r "${integration}.zip" "${integration}")`
       }
     ],
 
@@ -54,8 +75,8 @@ module.exports = {
         releaseNotesFile: "RELEASE_NOTES.md",
         assets: [
           {
-            path: "custom_components/${process.env.INTEGRATION_NAME}.zip",
-            label: "${process.env.INTEGRATION_NAME}.zip"
+            path: zipPath,
+            label: `${integration}.zip`
           }
         ]
       }
