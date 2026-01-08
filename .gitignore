@@ -3,3 +3,5 @@ custom_components/smhi_alerts/areas.json
 .DS_Store
 releasnote.md
 smhi_alerts.zip
+node_modules/
+npm-debug.log*
