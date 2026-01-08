@@ -49,7 +49,6 @@ module.exports = {
       }
     ],
 
-
     [
       "@semantic-release/exec",
       {
