@@ -26,7 +26,17 @@ module.exports = {
       {
         preset: "conventionalcommits",
         writerOpts: {
-          mainTemplate
+          mainTemplate,
+          transform: (commit) => {
+            try {
+              if (!commit.committerDate) return false;
+              const date = new Date(commit.committerDate);
+              if (Number.isNaN(date.getTime())) return false;
+              return commit;
+            } catch (e) {
+              return false;
+            }
+          }
         }
       }
     ],
