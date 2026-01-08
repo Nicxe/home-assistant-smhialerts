@@ -28,6 +28,11 @@ module.exports = {
         writerOpts: {
           mainTemplate,
           transform: (commit) => {
+            // Normalize commit type (FIX -> fix, FEAT -> feat, etc.)
+            if (commit.type) {
+              commit.type = commit.type.toLowerCase();
+            }
+
             // Normalize invalid or missing dates instead of dropping commits
             const rawDate =
               commit.committerDate ||
