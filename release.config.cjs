@@ -25,15 +25,23 @@ module.exports = {
       "@semantic-release/release-notes-generator",
       {
         preset: "conventionalcommits",
+        presetConfig: {
+          types: [
+            { "type": "feat", "section": "✨ New features" },
+            { "type": "fix", "section": "🐛 Bug fixes" },
+            { "type": "docs", "section": "📚 Documentation" },
+            { "type": "refactor", "section": "🧹 Refactoring" },
+            { "type": "chore", "section": "🔧 Maintenance" },
+            { "type": "*", "section": "📦 Other changes" }
+          ]
+        },
         writerOpts: {
           mainTemplate,
           transform: (commit) => {
-            // Normalize commit type (FIX -> fix, FEAT -> feat, etc.)
             if (commit.type) {
               commit.type = commit.type.toLowerCase();
             }
 
-            // Normalize invalid or missing dates instead of dropping commits
             const rawDate =
               commit.committerDate ||
               commit.authorDate ||
@@ -43,7 +51,6 @@ module.exports = {
             let date = new Date(rawDate);
 
             if (Number.isNaN(date.getTime())) {
-              // Fallback: use current time so the commit is still included
               date = new Date();
             }
 
