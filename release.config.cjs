@@ -25,7 +25,14 @@ module.exports = {
       {
         preset: "conventionalcommits",
         writerOpts: {
-          mainTemplate
+          mainTemplate,
+
+          // 🔒 KRITISKT: skyddar mot trasiga commits
+          transform: (commit) => {
+            delete commit.committerDate;
+            delete commit.commitDate;
+            return commit;
+          }
         }
       }
     ],
@@ -34,18 +41,20 @@ module.exports = {
       "@semantic-release/exec",
       {
         prepareCmd:
-          "jq '.version = \"${nextRelease.version}\"' custom_components/smhi_alerts/manifest.json > manifest.tmp && mv manifest.tmp custom_components/smhi_alerts/manifest.json && cd custom_components && zip -r smhi_alerts.zip smhi_alerts"
+          "jq '.version = \"${nextRelease.version}\"' custom_components/<integration_name>/manifest.json > manifest.tmp && " +
+          "mv manifest.tmp custom_components/<integration_name>/manifest.json && " +
+          "cd custom_components && zip -r <integration_name>.zip <integration_name>"
       }
     ],
 
     [
       "@semantic-release/github",
       {
-        draftRelease: true,
+        draft: true,
         assets: [
           {
-            path: "custom_components/smhi_alerts.zip",
-            label: "smhi_alerts.zip"
+            path: "custom_components/<integration_name>.zip",
+            label: "<integration_name>.zip"
           }
         ]
       }
