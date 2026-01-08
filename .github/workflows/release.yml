@@ -17,13 +17,40 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Detect integration name
+        run: |
+          set -e
+          if [ ! -d custom_components ]; then
+            echo "custom_components folder not found" >&2
+            exit 1
+          fi
+
+          count=$(find custom_components -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+          if [ "$count" -eq 0 ]; then
+            echo "No integration folder found under custom_components" >&2
+            exit 1
+          fi
+
+          if [ "$count" -gt 1 ]; then
+            echo "Multiple integration folders found under custom_components. Set INTEGRATION_NAME explicitly." >&2
+            find custom_components -mindepth 1 -maxdepth 1 -type d -printf '%f\n' >&2
+            exit 1
+          fi
+
+          name=$(find custom_components -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
+          echo "INTEGRATION_NAME=$name" >> "$GITHUB_ENV"
+          echo "Detected INTEGRATION_NAME=$name"
 
       - run: npm ci
 
       - run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INTEGRATION_NAME: ${{ env.INTEGRATION_NAME }}
