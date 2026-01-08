@@ -1,5 +1,7 @@
 const fs = require("fs");
 const path = require("path");
+const conventionalCommits = require("conventional-changelog-conventionalcommits");
+const defaultWriterOpts = conventionalCommits.writerOpts || {};
 
 const mainTemplate = fs.readFileSync(
   path.join(__dirname, ".release", "release-notes.hbs"),
@@ -36,29 +38,54 @@ module.exports = {
           ]
         },
         writerOpts: {
+          ...defaultWriterOpts,
           mainTemplate,
           groupBy: "type",
           commitGroupsSort: "title",
           commitsSort: ["scope", "subject"],
-          transform: (commit) => {
+          transform: (commit, context) => {
+            // Ensure unknown/missing types end up in the "Other changes" section
             if (!commit.type) {
-              commit.type = "other";
-            } else {
+              commit.type = "*";
+            }
+
+            // Normalize type for matching against presetConfig
+            if (typeof commit.type === "string" && commit.type !== "*") {
               commit.type = commit.type.toLowerCase();
             }
 
+            // Run the preset's default transform first so type->section mapping works
+            const transformed = defaultWriterOpts.transform
+              ? defaultWriterOpts.transform(commit, context)
+              : commit;
+
+            // Preset transform can filter commits by returning null
+            if (!transformed) {
+              return transformed;
+            }
+
+            // Make sure we always have a subject, otherwise skip the commit
+            transformed.subject =
+              transformed.subject || commit.subject || commit.header || "";
+            if (!transformed.subject.trim()) {
+              return null;
+            }
+
+            // Sanitize/normalize dates to avoid "RangeError: Invalid time value"
             const rawDate =
               commit.committerDate ||
               commit.authorDate ||
+              transformed.committerDate ||
+              transformed.authorDate ||
               commit.commit?.committer?.date ||
               commit.commit?.author?.date;
 
             const date = new Date(rawDate);
-            commit.committerDate = Number.isNaN(date.getTime())
+            transformed.committerDate = Number.isNaN(date.getTime())
               ? new Date().toISOString()
               : date.toISOString();
 
-            return commit;
+            return transformed;
           }
         }
       }
