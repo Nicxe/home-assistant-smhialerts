@@ -28,14 +28,22 @@ module.exports = {
         writerOpts: {
           mainTemplate,
           transform: (commit) => {
-            try {
-              if (!commit.committerDate) return false;
-              const date = new Date(commit.committerDate);
-              if (Number.isNaN(date.getTime())) return false;
-              return commit;
-            } catch (e) {
-              return false;
+            // Normalize invalid or missing dates instead of dropping commits
+            const rawDate =
+              commit.committerDate ||
+              commit.authorDate ||
+              commit.commit?.committer?.date ||
+              commit.commit?.author?.date;
+
+            let date = new Date(rawDate);
+
+            if (Number.isNaN(date.getTime())) {
+              // Fallback: use current time so the commit is still included
+              date = new Date();
             }
+
+            commit.committerDate = date.toISOString();
+            return commit;
           }
         }
       }
