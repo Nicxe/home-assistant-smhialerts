@@ -1,7 +1,25 @@
 const fs = require("fs");
 const path = require("path");
-const conventionalCommits = require("conventional-changelog-conventionalcommits");
-const defaultWriterOpts = conventionalCommits.writerOpts || {};
+
+// NOTE:
+// In current versions, `conventional-changelog-conventionalcommits` exports an async preset factory
+// (it does not expose `writerOpts` synchronously). That means we cannot rely on the preset's
+// default writer transform here. Instead we do the type->section mapping ourselves so the
+// handlebars template can render nice headings (commitGroups[].title).
+
+const RELEASE_NOTE_TYPES = [
+  { type: "feat", section: "New features" },
+  { type: "fix", section: "Bug fixes" },
+  { type: "docs", section: "Documentation" },
+  { type: "refactor", section: "Refactoring" },
+  { type: "chore", section: "Maintenance" },
+  { type: "*", section: "Other changes" }
+];
+
+const TYPE_TO_SECTION = RELEASE_NOTE_TYPES.reduce((acc, { type, section }) => {
+  acc[type] = section;
+  return acc;
+}, {});
 
 const mainTemplate = fs.readFileSync(
   path.join(__dirname, ".release", "release-notes.hbs"),
@@ -28,47 +46,50 @@ module.exports = {
       {
         preset: "conventionalcommits",
         presetConfig: {
-          types: [
-            { "type": "feat", "section": "✨ New features" },
-            { "type": "fix", "section": "🐛 Bug fixes" },
-            { "type": "docs", "section": "📚 Documentation" },
-            { "type": "refactor", "section": "🧹 Refactoring" },
-            { "type": "chore", "section": "🔧 Maintenance" },
-            { "type": "*", "section": "📦 Other changes" }
-          ]
+          types: RELEASE_NOTE_TYPES
         },
         writerOpts: {
-          ...defaultWriterOpts,
           mainTemplate,
           groupBy: "type",
           commitGroupsSort: "title",
           commitsSort: ["scope", "subject"],
           transform: (commit, context) => {
-            // Ensure unknown/missing types end up in the "Other changes" section
-            if (!commit.type) {
-              commit.type = "*";
+            const header = commit.header || commit.subject || "";
+
+            // Don't include GitHub merge commits in release notes
+            if (/^merge pull request/i.test(header) || /^merge branch/i.test(header)) {
+              return null;
             }
 
-            // Normalize type for matching against presetConfig
-            if (typeof commit.type === "string" && commit.type !== "*") {
-              commit.type = commit.type.toLowerCase();
-            }
-
-            // Run the preset's default transform first so type->section mapping works
-            const transformed = defaultWriterOpts.transform
-              ? defaultWriterOpts.transform(commit, context)
-              : commit;
-
-            // Preset transform can filter commits by returning null
-            if (!transformed) {
-              return transformed;
-            }
+            const transformed = { ...commit };
 
             // Make sure we always have a subject, otherwise skip the commit
             transformed.subject =
               transformed.subject || commit.subject || commit.header || "";
             if (!transformed.subject.trim()) {
               return null;
+            }
+
+            // Some conventional-changelog presets mark certain commit types (e.g. docs/chore)
+            // as hidden by default. We want them visible in our release notes.
+            transformed.hidden = false;
+
+            // Map conventional type -> pretty section title (this becomes commitGroups[].title)
+            let rawType = transformed.type || commit.type;
+            if (typeof rawType !== "string" || !rawType.trim()) {
+              rawType = "*";
+            }
+            rawType = rawType === "*" ? "*" : rawType.toLowerCase();
+            transformed.type = TYPE_TO_SECTION[rawType] || TYPE_TO_SECTION["*"];
+
+            // Optional: include commit body/description (everything after the first blank line)
+            // and pre-indent it so it renders nicely under the bullet in Markdown.
+            const body = (transformed.body || commit.body || "").trim();
+            if (body) {
+              transformed.bodyIndented = body
+                .split(/\r?\n/)
+                .map((line) => `  ${line}`) // 2-space indent => continues the list item
+                .join("\n");
             }
 
             // Sanitize/normalize dates to avoid "RangeError: Invalid time value"
@@ -95,7 +116,13 @@ module.exports = {
       "@semantic-release/exec",
       {
         prepareCmd:
-          "jq '.version = \"${nextRelease.version}\"' custom_components/smhi_alerts/manifest.json > manifest.tmp && mv manifest.tmp custom_components/smhi_alerts/manifest.json && cd custom_components && zip -r smhi_alerts.zip smhi_alerts"
+          "jq '.version = \"${nextRelease.version}\"' custom_components/smhi_alerts/manifest.json > manifest.tmp && mv manifest.tmp custom_components/smhi_alerts/manifest.json && cd custom_components && zip -r smhi_alerts.zip smhi_alerts",
+
+        // After a successful release, comment on issues referenced via "Fixes #123" etc
+        // in commits included in this release. GitHub will still close issues automatically
+        // when the PR is merged (closing keyword), this just adds "Included in X" context.
+        successCmd:
+          "node .release/notify-issues.js --range \"${lastRelease.gitHead}..${nextRelease.gitHead}\" --version \"${nextRelease.version}\" --git-tag \"${nextRelease.gitTag}\" --channel \"${nextRelease.channel}\""
       }
     ],
 
@@ -103,7 +130,10 @@ module.exports = {
       "@semantic-release/github",
       {
         draftRelease: true,
-        commentOnSuccess: false,
+        // Disable automated PR/issue comments from semantic-release
+        // (the "🎉 This PR is included in version ..." message)
+        successComment: false,
+        failComment: false,
         assets: [
           {
             path: "custom_components/smhi_alerts.zip",
