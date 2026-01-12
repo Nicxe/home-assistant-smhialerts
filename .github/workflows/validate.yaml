@@ -1,8 +1,10 @@
 name: Validate
 
 on:
-  push: 
+  push:
+    branches: [dev]
   pull_request:
+    branches: [beta, main]
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
