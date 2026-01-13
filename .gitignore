@@ -5,3 +5,4 @@ releasnote.md
 smhi_alerts.zip
 node_modules/
 npm-debug.log*
+custom_components/smhi_alerts/releasenotes.md
