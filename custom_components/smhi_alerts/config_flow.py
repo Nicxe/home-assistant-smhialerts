@@ -31,6 +31,7 @@ from .const import (
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import selector
 from homeassistant.helpers import aiohttp_client
+from aiohttp import ClientTimeout
 
 
 def _build_message_multiselect_options() -> dict[str, str]:
@@ -145,7 +146,8 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         district_options = []
         try:
             session = aiohttp_client.async_get_clientsession(self.hass)
-            async with session.get(AREAS_URL, timeout=10) as resp:
+            timeout = ClientTimeout(total=10)
+            async with session.get(AREAS_URL, timeout=timeout) as resp:
                 if resp.status == 200:
                     areas = await resp.json()
                     for area in areas:
@@ -227,7 +229,8 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         district_options = []
         try:
             session = aiohttp_client.async_get_clientsession(self.hass)
-            async with session.get(AREAS_URL, timeout=10) as resp:
+            timeout = ClientTimeout(total=10)
+            async with session.get(AREAS_URL, timeout=timeout) as resp:
                 if resp.status == 200:
                     areas = await resp.json()
                     # Expecting list of { id, sv, en }
@@ -325,7 +328,8 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
         district_options = []
         try:
             session = aiohttp_client.async_get_clientsession(self.hass)
-            async with session.get(AREAS_URL, timeout=10) as resp:
+            timeout = ClientTimeout(total=10)
+            async with session.get(AREAS_URL, timeout=timeout) as resp:
                 if resp.status == 200:
                     areas = await resp.json()
                     for area in areas:

@@ -5,8 +5,7 @@ from datetime import timedelta
 from time import monotonic
 import random
 from typing import Any, Dict, List, Tuple, Optional
-from aiohttp import ClientError
-import async_timeout
+from aiohttp import ClientError, ClientTimeout
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.const import __version__ as HA_VERSION
@@ -50,6 +49,9 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Platform should not parallelize updates since coordinator handles all fetching
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -323,6 +325,7 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         # Help upstream diagnose issues; also useful if SMHI applies any heuristics/rate-limits.
         headers["User-Agent"] = f"HomeAssistant/{HA_VERSION} (custom_components.smhi_alerts)"
         headers["Accept"] = "application/json"
+        headers["Accept-Encoding"] = "gzip, deflate"
         if self._etag:
             headers["If-None-Match"] = self._etag
         if self._last_modified:
@@ -364,18 +367,47 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                     self.update_interval,
                     {k: headers.get(k) for k in ("If-None-Match", "If-Modified-Since") if k in headers},
                 )
-            async with async_timeout.timeout(15):
-                async with self.session.get(WARNINGS_URL, headers=headers) as response:
+            timeout = ClientTimeout(total=15)
+            async with self.session.get(WARNINGS_URL, headers=headers, timeout=timeout) as response:
                     if _LOGGER.isEnabledFor(logging.DEBUG):
                         _LOGGER.debug(
-                            "SMHI response received in %.3fs (status=%s, etag=%s, last_modified=%s)",
+                            "SMHI response received in %.3fs (status=%s, etag=%s, last_modified=%s, content-encoding=%s)",
                             monotonic() - req_start,
                             response.status,
                             response.headers.get("ETag"),
                             response.headers.get("Last-Modified"),
+                            response.headers.get("Content-Encoding", "none"),
                         )
+
+                    # Handle rate limiting
+                    if response.status == 429:
+                        retry_after_header = response.headers.get("Retry-After")
+                        if retry_after_header:
+                            try:
+                                # Retry-After can be seconds (integer) or HTTP date
+                                retry_seconds = int(retry_after_header)
+                            except ValueError:
+                                # If it's a date, default to 60 seconds
+                                retry_seconds = 60
+                        else:
+                            retry_seconds = 60
+
+                        _LOGGER.warning(
+                            "SMHI API rate limit exceeded (429), will retry after %s seconds",
+                            retry_seconds
+                        )
+                        raise UpdateFailed(
+                            f"Rate limit exceeded, retry after {retry_seconds}s",
+                            retry_after=timedelta(seconds=retry_seconds)
+                        )
+
                     if response.status == 304:
-                        # Not modified: just update timestamp
+                        # Cache hit - log it
+                        if _LOGGER.isEnabledFor(logging.DEBUG):
+                            _LOGGER.debug(
+                                "Cache hit (304 Not Modified) in %.3fs, reusing existing data",
+                                monotonic() - req_start
+                            )
                         data.update(self.data or {})
                     else:
                         response.raise_for_status()
