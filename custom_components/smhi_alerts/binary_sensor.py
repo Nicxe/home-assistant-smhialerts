@@ -11,6 +11,9 @@ from .const import DOMAIN, DISTRICTS, DEFAULT_NAME, DEFAULT_MODE, DEFAULT_RADIUS
 
 _LOGGER = logging.getLogger(__name__)
 
+# Platform should not parallelize updates since coordinator handles all fetching
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     try:
