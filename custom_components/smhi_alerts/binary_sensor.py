@@ -15,7 +15,9 @@ _LOGGER = logging.getLogger(__name__)
 PARALLEL_UPDATES = 0
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+):
     try:
         coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     except KeyError:
@@ -66,12 +68,12 @@ class SMHIAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
             r = int(round(getattr(self.coordinator, "radius_km", DEFAULT_RADIUS_KM)))
             return f"{DEFAULT_NAME} active ({lat},{lon} @ {r}km)"
         else:
-            return f"{DEFAULT_NAME} active ({DISTRICTS.get(self.district, self.district)})"
+            return (
+                f"{DEFAULT_NAME} active ({DISTRICTS.get(self.district, self.district)})"
+            )
 
     def _derive_unique_id(self) -> str:
         # IMPORTANT: unique_id must be stable for the lifetime of the config entry.
         # Do NOT include user-configurable settings (district/coordinates/radius/language/geometry),
         # otherwise HA will create new entities when those settings change.
         return f"{self.entry.entry_id}_smhi_alert_active"
-
-

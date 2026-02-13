@@ -75,8 +75,23 @@ SEVERITY_ORDER = ["NONE", "MESSAGE", "YELLOW", "ORANGE", "RED"]
 
 # Marine area IDs (sea districts) as per SMHI areas
 MARINE_AREA_IDS = {
-    "41", "42", "43", "44", "45", "46", "47", "48", "49", "50",
-    "51", "52", "53", "54", "55", "56", "57"
+    "41",
+    "42",
+    "43",
+    "44",
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50",
+    "51",
+    "52",
+    "53",
+    "54",
+    "55",
+    "56",
+    "57",
 }
 
 # Event codes that are explicitly marine
@@ -86,29 +101,135 @@ MARINE_EVENT_CODES = {"HIGH_SEALEVEL"}
 WARNINGS_URL = (
     "https://opendata-download-warnings.smhi.se/ibww/api/version/1/warning.json"
 )
-AREAS_URL = (
-    "https://opendata-download-warnings.smhi.se/ibww/api/version/1/areas.json"
-)
+AREAS_URL = "https://opendata-download-warnings.smhi.se/ibww/api/version/1/areas.json"
 
 MESSAGE_EVENT_CATEGORIES = [
-    {"value": "THUNDER", "label_sv": "Åska", "label_en": "Thunderstorm", "mho_code": "MET", "aliases": ["THUNDERSTORM"]},
-    {"value": "WIND", "label_sv": "Vind", "label_en": "Wind", "mho_code": "MET", "aliases": []},
-    {"value": "WIND_MOUNTAINS", "label_sv": "Vind i fjäll", "label_en": "Wind in the alpine region", "mho_code": "MET", "aliases": []},
-    {"value": "WIND_MOUNTAINS_SNOW", "label_sv": "Vind och snö i fjäll", "label_en": "Wind and snow in the alpine region", "mho_code": "MET", "aliases": []},
-    {"value": "STRONG_COOLING", "label_sv": "Kraftig avkylning", "label_en": "Strong cooling", "mho_code": "MET", "aliases": []},
-    {"value": "SNOW", "label_sv": "Snö", "label_en": "Snow", "mho_code": "MET", "aliases": []},
-    {"value": "WIND_SNOW", "label_sv": "Vind och snö", "label_en": "Wind and snow", "mho_code": "MET", "aliases": []},
-    {"value": "BLACK_ICE", "label_sv": "Svartis", "label_en": "Black ice", "mho_code": "MET", "aliases": []},
-    {"value": "RAIN", "label_sv": "Regn", "label_en": "Rain", "mho_code": "MET", "aliases": []},
-    {"value": "FIRE", "label_sv": "Brandrisk", "label_en": "Fire risk", "mho_code": "MET", "aliases": ["FIRE RISK", "FIRE_RISK"]},
-    {"value": "HIGH_TEMPERATURES", "label_sv": "Höga temperaturer", "label_en": "High temperatures", "mho_code": "MET", "aliases": ["HEAT", "HEAT WAVE", "HEATWAVE"]},
-    {"value": "WIND_SEA", "label_sv": "Vind till havs", "label_en": "Wind at sea", "mho_code": "MET", "aliases": ["WIND_AT_SEA"]},
-    {"value": "ICE_ACCRETION", "label_sv": "Isbildning", "label_en": "Ice accretion", "mho_code": "OCE", "aliases": []},
-    {"value": "LOW_SEA_LEVEL", "label_sv": "Lågt vattenstånd", "label_en": "Low sea level", "mho_code": "OCE", "aliases": []},
-    {"value": "HIGH_SEALEVEL", "label_sv": "Högt vattenstånd", "label_en": "High sea level", "mho_code": "OCE", "aliases": ["HIGH_SEA_LEVEL"]},
-    {"value": "WATER_SHORTAGE", "label_sv": "Vattenbrist", "label_en": "Risk for water shortage", "mho_code": "HYD", "aliases": ["WATER SHORTAGE"]},
-    {"value": "HIGH_FLOW", "label_sv": "Hög vattenföring", "label_en": "High water discharge", "mho_code": "HYD", "aliases": ["HIGH WATER DISCHARGE"]},
-    {"value": "FLOODING", "label_sv": "Översvämning", "label_en": "Flooding", "mho_code": "HYD", "aliases": []},
+    {
+        "value": "THUNDER",
+        "label_sv": "Åska",
+        "label_en": "Thunderstorm",
+        "mho_code": "MET",
+        "aliases": ["THUNDERSTORM"],
+    },
+    {
+        "value": "WIND",
+        "label_sv": "Vind",
+        "label_en": "Wind",
+        "mho_code": "MET",
+        "aliases": [],
+    },
+    {
+        "value": "WIND_MOUNTAINS",
+        "label_sv": "Vind i fjäll",
+        "label_en": "Wind in the alpine region",
+        "mho_code": "MET",
+        "aliases": [],
+    },
+    {
+        "value": "WIND_MOUNTAINS_SNOW",
+        "label_sv": "Vind och snö i fjäll",
+        "label_en": "Wind and snow in the alpine region",
+        "mho_code": "MET",
+        "aliases": [],
+    },
+    {
+        "value": "STRONG_COOLING",
+        "label_sv": "Kraftig avkylning",
+        "label_en": "Strong cooling",
+        "mho_code": "MET",
+        "aliases": [],
+    },
+    {
+        "value": "SNOW",
+        "label_sv": "Snö",
+        "label_en": "Snow",
+        "mho_code": "MET",
+        "aliases": [],
+    },
+    {
+        "value": "WIND_SNOW",
+        "label_sv": "Vind och snö",
+        "label_en": "Wind and snow",
+        "mho_code": "MET",
+        "aliases": [],
+    },
+    {
+        "value": "BLACK_ICE",
+        "label_sv": "Svartis",
+        "label_en": "Black ice",
+        "mho_code": "MET",
+        "aliases": [],
+    },
+    {
+        "value": "RAIN",
+        "label_sv": "Regn",
+        "label_en": "Rain",
+        "mho_code": "MET",
+        "aliases": [],
+    },
+    {
+        "value": "FIRE",
+        "label_sv": "Brandrisk",
+        "label_en": "Fire risk",
+        "mho_code": "MET",
+        "aliases": ["FIRE RISK", "FIRE_RISK"],
+    },
+    {
+        "value": "HIGH_TEMPERATURES",
+        "label_sv": "Höga temperaturer",
+        "label_en": "High temperatures",
+        "mho_code": "MET",
+        "aliases": ["HEAT", "HEAT WAVE", "HEATWAVE"],
+    },
+    {
+        "value": "WIND_SEA",
+        "label_sv": "Vind till havs",
+        "label_en": "Wind at sea",
+        "mho_code": "MET",
+        "aliases": ["WIND_AT_SEA"],
+    },
+    {
+        "value": "ICE_ACCRETION",
+        "label_sv": "Isbildning",
+        "label_en": "Ice accretion",
+        "mho_code": "OCE",
+        "aliases": [],
+    },
+    {
+        "value": "LOW_SEA_LEVEL",
+        "label_sv": "Lågt vattenstånd",
+        "label_en": "Low sea level",
+        "mho_code": "OCE",
+        "aliases": [],
+    },
+    {
+        "value": "HIGH_SEALEVEL",
+        "label_sv": "Högt vattenstånd",
+        "label_en": "High sea level",
+        "mho_code": "OCE",
+        "aliases": ["HIGH_SEA_LEVEL"],
+    },
+    {
+        "value": "WATER_SHORTAGE",
+        "label_sv": "Vattenbrist",
+        "label_en": "Risk for water shortage",
+        "mho_code": "HYD",
+        "aliases": ["WATER SHORTAGE"],
+    },
+    {
+        "value": "HIGH_FLOW",
+        "label_sv": "Hög vattenföring",
+        "label_en": "High water discharge",
+        "mho_code": "HYD",
+        "aliases": ["HIGH WATER DISCHARGE"],
+    },
+    {
+        "value": "FLOODING",
+        "label_sv": "Översvämning",
+        "label_en": "Flooding",
+        "mho_code": "HYD",
+        "aliases": [],
+    },
 ]
 
 MESSAGE_EVENT_DEFINITIONS = {item["value"]: item for item in MESSAGE_EVENT_CATEGORIES}
