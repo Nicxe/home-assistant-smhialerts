@@ -137,6 +137,10 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry):
 class SMHIAlertSensor(CoordinatorEntity, SensorEntity):
     """Representation of the SMHI Alert sensor."""
 
+    # Keep large payload attributes available in state for UI/automations,
+    # but exclude them from recorder to avoid oversized attribute rows.
+    _unrecorded_attributes = frozenset({"messages", "notice"})
+
     def __init__(self, coordinator: "SmhiAlertCoordinator", entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self.entry = entry
@@ -234,7 +238,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             ),
             entry.options.get(
                 CONF_EXCLUDED_MESSAGE_TYPES,
-                entry.data.get(CONF_EXCLUDED_MESSAGE_TYPES, DEFAULT_EXCLUDED_MESSAGE_TYPES),
+                entry.data.get(
+                    CONF_EXCLUDED_MESSAGE_TYPES, DEFAULT_EXCLUDED_MESSAGE_TYPES
+                ),
             ),
         )
         self._etag: str | None = None
@@ -272,7 +278,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             selected = []
         if not selected and legacy_excluded:
             selected = [
-                code for code in DEFAULT_MESSAGE_TYPES if code not in set(legacy_excluded)
+                code
+                for code in DEFAULT_MESSAGE_TYPES
+                if code not in set(legacy_excluded)
             ]
         if not selected:
             selected = list(DEFAULT_MESSAGE_TYPES)
@@ -323,7 +331,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         req_start = monotonic()
         headers: Dict[str, str] = {}
         # Help upstream diagnose issues; also useful if SMHI applies any heuristics/rate-limits.
-        headers["User-Agent"] = f"HomeAssistant/{HA_VERSION} (custom_components.smhi_alerts)"
+        headers["User-Agent"] = (
+            f"HomeAssistant/{HA_VERSION} (custom_components.smhi_alerts)"
+        )
         headers["Accept"] = "application/json"
         headers["Accept-Encoding"] = "gzip, deflate"
         if self._etag:
@@ -365,68 +375,72 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                     15,
                     self._failure_count,
                     self.update_interval,
-                    {k: headers.get(k) for k in ("If-None-Match", "If-Modified-Since") if k in headers},
+                    {
+                        k: headers.get(k)
+                        for k in ("If-None-Match", "If-Modified-Since")
+                        if k in headers
+                    },
                 )
             timeout = ClientTimeout(total=15)
-            async with self.session.get(WARNINGS_URL, headers=headers, timeout=timeout) as response:
+            async with self.session.get(
+                WARNINGS_URL, headers=headers, timeout=timeout
+            ) as response:
+                if _LOGGER.isEnabledFor(logging.DEBUG):
+                    _LOGGER.debug(
+                        "SMHI response received in %.3fs (status=%s, etag=%s, last_modified=%s, content-encoding=%s)",
+                        monotonic() - req_start,
+                        response.status,
+                        response.headers.get("ETag"),
+                        response.headers.get("Last-Modified"),
+                        response.headers.get("Content-Encoding", "none"),
+                    )
+
+                # Handle rate limiting
+                if response.status == 429:
+                    retry_after_header = response.headers.get("Retry-After")
+                    if retry_after_header:
+                        try:
+                            # Retry-After can be seconds (integer) or HTTP date
+                            retry_seconds = int(retry_after_header)
+                        except ValueError:
+                            # If it's a date, default to 60 seconds
+                            retry_seconds = 60
+                    else:
+                        retry_seconds = 60
+
+                    _LOGGER.warning(
+                        "SMHI API rate limit exceeded (429), will retry after %s seconds",
+                        retry_seconds,
+                    )
+                    raise UpdateFailed(
+                        f"Rate limit exceeded, retry after {retry_seconds}s",
+                        retry_after=timedelta(seconds=retry_seconds),
+                    )
+
+                if response.status == 304:
+                    # Cache hit - log it
                     if _LOGGER.isEnabledFor(logging.DEBUG):
                         _LOGGER.debug(
-                            "SMHI response received in %.3fs (status=%s, etag=%s, last_modified=%s, content-encoding=%s)",
+                            "Cache hit (304 Not Modified) in %.3fs, reusing existing data",
                             monotonic() - req_start,
-                            response.status,
-                            response.headers.get("ETag"),
-                            response.headers.get("Last-Modified"),
-                            response.headers.get("Content-Encoding", "none"),
                         )
+                    data.update(self.data or {})
+                else:
+                    response.raise_for_status()
+                    json_data = await response.json()
+                    messages, notice, derived = self._process_data(json_data)
+                    if derived["alerts_count"] > 0:
+                        data["state"] = "Alert" if self.language == "en" else "Varning"
+                    data["attributes"]["messages"] = messages
+                    data["attributes"]["notice"] = notice
+                    data["attributes"].update(derived)
+                    data["attributes"]["filter_message_types"] = list(
+                        self.message_types or DEFAULT_MESSAGE_TYPES
+                    )
 
-                    # Handle rate limiting
-                    if response.status == 429:
-                        retry_after_header = response.headers.get("Retry-After")
-                        if retry_after_header:
-                            try:
-                                # Retry-After can be seconds (integer) or HTTP date
-                                retry_seconds = int(retry_after_header)
-                            except ValueError:
-                                # If it's a date, default to 60 seconds
-                                retry_seconds = 60
-                        else:
-                            retry_seconds = 60
-
-                        _LOGGER.warning(
-                            "SMHI API rate limit exceeded (429), will retry after %s seconds",
-                            retry_seconds
-                        )
-                        raise UpdateFailed(
-                            f"Rate limit exceeded, retry after {retry_seconds}s",
-                            retry_after=timedelta(seconds=retry_seconds)
-                        )
-
-                    if response.status == 304:
-                        # Cache hit - log it
-                        if _LOGGER.isEnabledFor(logging.DEBUG):
-                            _LOGGER.debug(
-                                "Cache hit (304 Not Modified) in %.3fs, reusing existing data",
-                                monotonic() - req_start
-                            )
-                        data.update(self.data or {})
-                    else:
-                        response.raise_for_status()
-                        json_data = await response.json()
-                        messages, notice, derived = self._process_data(json_data)
-                        if derived["alerts_count"] > 0:
-                            data["state"] = (
-                                "Alert" if self.language == "en" else "Varning"
-                            )
-                        data["attributes"]["messages"] = messages
-                        data["attributes"]["notice"] = notice
-                        data["attributes"].update(derived)
-                        data["attributes"]["filter_message_types"] = list(
-                            self.message_types or DEFAULT_MESSAGE_TYPES
-                        )
-
-                        # Save caching headers
-                        self._etag = response.headers.get("ETag")
-                        self._last_modified = response.headers.get("Last-Modified")
+                    # Save caching headers
+                    self._etag = response.headers.get("ETag")
+                    self._last_modified = response.headers.get("Last-Modified")
 
             self._last_success = dt_util.utcnow().isoformat()
             data["attributes"]["last_update"] = self._last_success
@@ -482,7 +496,7 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
     def _apply_backoff(self) -> None:
         # Cap backoff to 60 minutes
         factor = min(self._failure_count, 5)
-        seconds = self._base_interval.total_seconds() * (2 ** factor)
+        seconds = self._base_interval.total_seconds() * (2**factor)
         max_seconds = 60 * 60
         capped_seconds = min(seconds, max_seconds)
         # Add a little jitter so multiple instances don't retry in lock-step.
@@ -499,7 +513,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             )
         self.update_interval = new_interval
 
-    def _process_data(self, data: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
+    def _process_data(
+        self, data: List[Dict[str, Any]]
+    ) -> Tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
         """Process data, compute derived metrics, and build messages and notice."""
         messages: List[Dict[str, Any]] = []
         notice_lines: List[str] = []
@@ -508,12 +524,16 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         messages_count = 0
 
         if not data:
-            return messages, "", {
-                "warnings_count": 0,
-                "messages_count": 0,
-                "alerts_count": 0,
-                "highest_severity": highest_severity,
-            }
+            return (
+                messages,
+                "",
+                {
+                    "warnings_count": 0,
+                    "messages_count": 0,
+                    "alerts_count": 0,
+                    "highest_severity": highest_severity,
+                },
+            )
 
         for alert in data:
             event = alert.get("event", {}).get(self.language, "")
@@ -526,11 +546,17 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 valid_areas: List[str] = []
 
                 if getattr(self, "mode", DEFAULT_MODE) == "coordinate":
-                    if self.exclude_sea and self._is_marine_area(area, event_code, mho_class):
+                    if self.exclude_sea and self._is_marine_area(
+                        area, event_code, mho_class
+                    ):
                         continue
                     if self._area_matches_coordinate_filter(area):
                         name_obj = area.get("areaName", {})
-                        label = name_obj.get(self.language) or name_obj.get("en") or name_obj.get("sv")
+                        label = (
+                            name_obj.get(self.language)
+                            or name_obj.get("en")
+                            or name_obj.get("sv")
+                        )
                         if label:
                             valid_areas.append(label)
                         else:
@@ -542,7 +568,12 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                     for affected_area in affected_areas:
                         area_id = str(affected_area.get("id"))
                         area_name = affected_area.get(self.language)
-                        if self.exclude_sea and (area_id in MARINE_AREA_IDS or event_code in MARINE_EVENT_CODES or mho_class == "OCE" or event_code.endswith("_SEA")):
+                        if self.exclude_sea and (
+                            area_id in MARINE_AREA_IDS
+                            or event_code in MARINE_EVENT_CODES
+                            or mho_class == "OCE"
+                            or event_code.endswith("_SEA")
+                        ):
                             continue
                         if area_id == self.district or self.district == "all":
                             if area_name:
@@ -563,7 +594,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 elif code in ("YELLOW", "ORANGE", "RED"):
                     warnings_count += 1
 
-                if SEVERITY_ORDER.index(code if code in SEVERITY_ORDER else "NONE") > SEVERITY_ORDER.index(highest_severity):
+                if SEVERITY_ORDER.index(
+                    code if code in SEVERITY_ORDER else "NONE"
+                ) > SEVERITY_ORDER.index(highest_severity):
                     highest_severity = code
 
                 descr = area.get("eventDescription", {}).get(self.language, "")
@@ -636,7 +669,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         def _rank(code: str) -> int:
             return SEVERITY_ORDER.index(code if code in SEVERITY_ORDER else "NONE")
 
-        messages_sorted = sorted(messages, key=lambda m: _rank(m.get("code", "NONE")), reverse=True)
+        messages_sorted = sorted(
+            messages, key=lambda m: _rank(m.get("code", "NONE")), reverse=True
+        )
         # Rebuild notice to reflect sorted order
         notice_sorted = "".join(self._format_notice(m) for m in messages_sorted)
         return messages_sorted, notice_sorted, derived
@@ -660,17 +695,25 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             if not gtype or coords is None:
                 return False
             if gtype == "Polygon":
-                return self._polygon_within_radius(center_lon, center_lat, radius_m, coords)
+                return self._polygon_within_radius(
+                    center_lon, center_lat, radius_m, coords
+                )
             if gtype == "LineString":
-                return self._linestring_within_radius(center_lon, center_lat, radius_m, coords)
+                return self._linestring_within_radius(
+                    center_lon, center_lat, radius_m, coords
+                )
             if gtype == "MultiPolygon":
                 for poly in coords or []:
-                    if self._polygon_within_radius(center_lon, center_lat, radius_m, poly):
+                    if self._polygon_within_radius(
+                        center_lon, center_lat, radius_m, poly
+                    ):
                         return True
                 return False
             if gtype == "MultiLineString":
                 for line in coords or []:
-                    if self._linestring_within_radius(center_lon, center_lat, radius_m, line):
+                    if self._linestring_within_radius(
+                        center_lon, center_lat, radius_m, line
+                    ):
                         return True
                 return False
             return False
@@ -686,9 +729,13 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         # Some payloads embed raw geometry directly
         return feature_matches(geometry_container)
 
-    def _is_marine_area(self, area: Dict[str, Any], event_code: str, mho_class: Optional[str]) -> bool:
+    def _is_marine_area(
+        self, area: Dict[str, Any], event_code: str, mho_class: Optional[str]
+    ) -> bool:
         # Marine by event classification
-        if event_code in MARINE_EVENT_CODES or (event_code and event_code.endswith("_SEA")):
+        if event_code in MARINE_EVENT_CODES or (
+            event_code and event_code.endswith("_SEA")
+        ):
             return True
         if mho_class == "OCE":
             return True
@@ -698,7 +745,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 return True
         return False
 
-    def _project(self, lon: float, lat: float, lon0: float, lat0: float) -> Tuple[float, float]:
+    def _project(
+        self, lon: float, lat: float, lon0: float, lat0: float
+    ) -> Tuple[float, float]:
         # Equirectangular projection around (lon0, lat0) in meters
         from math import radians, cos
 
@@ -711,7 +760,13 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         y = (lat_r - lat0_r) * R
         return x, y
 
-    def _point_in_polygon(self, point_xy: Tuple[float, float], poly_lonlat_rings: List[List[List[float]]], center_lon: float, center_lat: float) -> bool:
+    def _point_in_polygon(
+        self,
+        point_xy: Tuple[float, float],
+        poly_lonlat_rings: List[List[List[float]]],
+        center_lon: float,
+        center_lat: float,
+    ) -> bool:
         # Only consider outer ring for inclusion; ignore holes for simplicity
         if not poly_lonlat_rings:
             return False
@@ -721,7 +776,6 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         x, y = point_xy
         inside = False
         # Ray casting
-        prev_x = prev_y = None
         for i in range(len(outer)):
             lon_i, lat_i = outer[i]
             lon_j, lat_j = outer[i - 1] if i > 0 else outer[-1]
@@ -734,7 +788,9 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
                 inside = not inside
         return inside
 
-    def _distance_point_to_segment(self, px: float, py: float, ax: float, ay: float, bx: float, by: float) -> float:
+    def _distance_point_to_segment(
+        self, px: float, py: float, ax: float, ay: float, bx: float, by: float
+    ) -> float:
         # Return min distance from point P to segment AB in meters
         from math import hypot
 
@@ -750,7 +806,13 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
         cy = ay + t * aby
         return hypot(px - cx, py - cy)
 
-    def _polygon_within_radius(self, center_lon: float, center_lat: float, radius_m: float, poly_coords: List[List[List[float]]]) -> bool:
+    def _polygon_within_radius(
+        self,
+        center_lon: float,
+        center_lat: float,
+        radius_m: float,
+        poly_coords: List[List[List[float]]],
+    ) -> bool:
         px, py = self._project(center_lon, center_lat, center_lon, center_lat)
         if self._point_in_polygon((px, py), poly_coords, center_lon, center_lat):
             return True
@@ -778,7 +840,13 @@ class SmhiAlertCoordinator(DataUpdateCoordinator):
             min_d = d
         return min_d <= radius_m
 
-    def _linestring_within_radius(self, center_lon: float, center_lat: float, radius_m: float, line_coords: List[List[float]]) -> bool:
+    def _linestring_within_radius(
+        self,
+        center_lon: float,
+        center_lat: float,
+        radius_m: float,
+        line_coords: List[List[float]],
+    ) -> bool:
         if not line_coords or len(line_coords) < 2:
             return False
         px, py = self._project(center_lon, center_lat, center_lon, center_lat)
