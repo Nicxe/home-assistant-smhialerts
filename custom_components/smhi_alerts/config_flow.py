@@ -77,9 +77,15 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="entry_not_found")
 
         # Build default values from current entry (options override data if set)
-        current_mode = entry.options.get(CONF_MODE, entry.data.get(CONF_MODE, DEFAULT_MODE))
-        current_district = entry.options.get(CONF_DISTRICT, entry.data.get(CONF_DISTRICT, "all"))
-        current_language = entry.options.get(CONF_LANGUAGE, entry.data.get(CONF_LANGUAGE, DEFAULT_LANGUAGE))
+        current_mode = entry.options.get(
+            CONF_MODE, entry.data.get(CONF_MODE, DEFAULT_MODE)
+        )
+        current_district = entry.options.get(
+            CONF_DISTRICT, entry.data.get(CONF_DISTRICT, "all")
+        )
+        current_language = entry.options.get(
+            CONF_LANGUAGE, entry.data.get(CONF_LANGUAGE, DEFAULT_LANGUAGE)
+        )
         current_include_messages = entry.options.get(
             CONF_INCLUDE_MESSAGES,
             entry.data.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
@@ -88,8 +94,12 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_INCLUDE_GEOMETRY,
             entry.data.get(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY),
         )
-        current_lat = entry.options.get(CONF_LATITUDE, entry.data.get(CONF_LATITUDE, self.hass.config.latitude))
-        current_lon = entry.options.get(CONF_LONGITUDE, entry.data.get(CONF_LONGITUDE, self.hass.config.longitude))
+        current_lat = entry.options.get(
+            CONF_LATITUDE, entry.data.get(CONF_LATITUDE, self.hass.config.latitude)
+        )
+        current_lon = entry.options.get(
+            CONF_LONGITUDE, entry.data.get(CONF_LONGITUDE, self.hass.config.longitude)
+        )
         current_location = entry.options.get(
             CONF_LOCATION,
             entry.data.get(
@@ -97,7 +107,9 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {"latitude": current_lat, "longitude": current_lon},
             ),
         )
-        current_radius = entry.options.get(CONF_RADIUS_KM, entry.data.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM))
+        current_radius = entry.options.get(
+            CONF_RADIUS_KM, entry.data.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM)
+        )
         current_exclude_sea = entry.options.get(
             CONF_EXCLUDE_SEA,
             entry.data.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA),
@@ -111,23 +123,33 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             new_data = {
                 CONF_MODE: user_input[CONF_MODE],
                 CONF_LANGUAGE: user_input[CONF_LANGUAGE],
-                CONF_INCLUDE_MESSAGES: user_input.get(CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES),
-                CONF_INCLUDE_GEOMETRY: user_input.get(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY),
+                CONF_INCLUDE_MESSAGES: user_input.get(
+                    CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES
+                ),
+                CONF_INCLUDE_GEOMETRY: user_input.get(
+                    CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY
+                ),
                 CONF_MESSAGE_TYPES: user_input.get(
                     CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES
                 ),
             }
             if user_input[CONF_MODE] == "district":
                 new_data[CONF_DISTRICT] = user_input[CONF_DISTRICT]
-                new_data[CONF_EXCLUDE_SEA] = user_input.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA)
+                new_data[CONF_EXCLUDE_SEA] = user_input.get(
+                    CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA
+                )
                 new_title = f"SMHI Alert ({DISTRICTS.get(new_data[CONF_DISTRICT], new_data[CONF_DISTRICT])})"
             else:
                 # Map location selector to lat/lon plus radius
                 loc = user_input.get(CONF_LOCATION) or {}
                 new_data[CONF_LATITUDE] = loc.get("latitude", self.hass.config.latitude)
-                new_data[CONF_LONGITUDE] = loc.get("longitude", self.hass.config.longitude)
+                new_data[CONF_LONGITUDE] = loc.get(
+                    "longitude", self.hass.config.longitude
+                )
                 new_data[CONF_RADIUS_KM] = user_input[CONF_RADIUS_KM]
-                new_data[CONF_EXCLUDE_SEA] = user_input.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA)
+                new_data[CONF_EXCLUDE_SEA] = user_input.get(
+                    CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA
+                )
                 new_title = f"SMHI Alert ({round(new_data[CONF_LATITUDE], 4)},{round(new_data[CONF_LONGITUDE], 4)} @ {new_data[CONF_RADIUS_KM]}km)"
 
             new_options = dict(entry.options)
@@ -182,13 +204,28 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_DISTRICT, default=current_district): selector(
                     {"select": {"options": district_options, "mode": "dropdown"}}
                 ),
-                vol.Optional(CONF_LOCATION, default=current_location): selector({"location": {}}),
-                vol.Optional(CONF_RADIUS_KM, default=current_radius): selector({"number": {"min": 1, "max": 250, "step": 1, "unit_of_measurement": "km"}}),
+                vol.Optional(CONF_LOCATION, default=current_location): selector(
+                    {"location": {}}
+                ),
+                vol.Optional(CONF_RADIUS_KM, default=current_radius): selector(
+                    {
+                        "number": {
+                            "min": 1,
+                            "max": 250,
+                            "step": 1,
+                            "unit_of_measurement": "km",
+                        }
+                    }
+                ),
                 vol.Required(CONF_LANGUAGE, default=current_language): selector(
                     {"select": {"options": language_options, "mode": "dropdown"}}
                 ),
-                vol.Required(CONF_INCLUDE_MESSAGES, default=current_include_messages): cv.boolean,
-                vol.Required(CONF_INCLUDE_GEOMETRY, default=current_include_geometry): cv.boolean,
+                vol.Required(
+                    CONF_INCLUDE_MESSAGES, default=current_include_messages
+                ): cv.boolean,
+                vol.Required(
+                    CONF_INCLUDE_GEOMETRY, default=current_include_geometry
+                ): cv.boolean,
                 vol.Required(CONF_EXCLUDE_SEA, default=current_exclude_sea): cv.boolean,
                 vol.Optional(
                     CONF_MESSAGE_TYPES,
@@ -197,7 +234,9 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
-        return self.async_show_form(step_id="reconfigure", data_schema=data_schema, errors=errors)
+        return self.async_show_form(
+            step_id="reconfigure", data_schema=data_schema, errors=errors
+        )
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
@@ -217,7 +256,9 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 lat = loc.get("latitude", self.hass.config.latitude)
                 lon = loc.get("longitude", self.hass.config.longitude)
                 radius = user_input.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM)
-                await self.async_set_unique_id(f"coord:{round(lat,4)},{round(lon,4)}:{radius}:{language}")
+                await self.async_set_unique_id(
+                    f"coord:{round(lat, 4)},{round(lon, 4)}:{radius}:{language}"
+                )
                 self._abort_if_unique_id_configured()
                 title = f"SMHI Alert ({round(lat, 4)},{round(lon, 4)} @ {radius}km)"
             return self.async_create_entry(
@@ -269,8 +310,23 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         }
                     }
                 ),
-                vol.Optional(CONF_LOCATION, default={"latitude": self.hass.config.latitude, "longitude": self.hass.config.longitude}): selector({"location": {}}),
-                vol.Optional(CONF_RADIUS_KM, default=DEFAULT_RADIUS_KM): selector({"number": {"min": 1, "max": 250, "step": 1, "unit_of_measurement": "km"}}),
+                vol.Optional(
+                    CONF_LOCATION,
+                    default={
+                        "latitude": self.hass.config.latitude,
+                        "longitude": self.hass.config.longitude,
+                    },
+                ): selector({"location": {}}),
+                vol.Optional(CONF_RADIUS_KM, default=DEFAULT_RADIUS_KM): selector(
+                    {
+                        "number": {
+                            "min": 1,
+                            "max": 250,
+                            "step": 1,
+                            "unit_of_measurement": "km",
+                        }
+                    }
+                ),
                 vol.Required(CONF_LANGUAGE, default=DEFAULT_LANGUAGE): selector(
                     {
                         "select": {
@@ -382,7 +438,10 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_LOCATION,
                         self.config_entry.data.get(
                             CONF_LOCATION,
-                            {"latitude": self.hass.config.latitude, "longitude": self.hass.config.longitude},
+                            {
+                                "latitude": self.hass.config.latitude,
+                                "longitude": self.hass.config.longitude,
+                            },
                         ),
                     ),
                 ): selector({"location": {}}),
@@ -392,7 +451,16 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_RADIUS_KM,
                         self.config_entry.data.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM),
                     ),
-                ): selector({"number": {"min": 1, "max": 250, "step": 1, "unit_of_measurement": "km"}}),
+                ): selector(
+                    {
+                        "number": {
+                            "min": 1,
+                            "max": 250,
+                            "step": 1,
+                            "unit_of_measurement": "km",
+                        }
+                    }
+                ),
                 vol.Optional(
                     CONF_LANGUAGE,
                     default=self.config_entry.options.get(
@@ -429,7 +497,9 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_EXCLUDE_SEA,
                     default=self.config_entry.options.get(
                         CONF_EXCLUDE_SEA,
-                        self.config_entry.data.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA),
+                        self.config_entry.data.get(
+                            CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA
+                        ),
                     ),
                 ): cv.boolean,
                 vol.Optional(

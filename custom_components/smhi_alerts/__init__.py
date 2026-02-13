@@ -103,7 +103,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             ),
             updated_entry.options.get(
                 CONF_EXCLUDED_MESSAGE_TYPES,
-                updated_entry.data.get(CONF_EXCLUDED_MESSAGE_TYPES, DEFAULT_EXCLUDED_MESSAGE_TYPES),
+                updated_entry.data.get(
+                    CONF_EXCLUDED_MESSAGE_TYPES, DEFAULT_EXCLUDED_MESSAGE_TYPES
+                ),
             ),
         )
         coord.exclude_sea = updated_entry.options.get(
@@ -112,17 +114,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         )
         coord.latitude = float(
             updated_entry.options.get(
-                CONF_LATITUDE, updated_entry.data.get(CONF_LATITUDE, hass.config.latitude)
+                CONF_LATITUDE,
+                updated_entry.data.get(CONF_LATITUDE, hass.config.latitude),
             )
         )
         coord.longitude = float(
             updated_entry.options.get(
-                CONF_LONGITUDE, updated_entry.data.get(CONF_LONGITUDE, hass.config.longitude)
+                CONF_LONGITUDE,
+                updated_entry.data.get(CONF_LONGITUDE, hass.config.longitude),
             )
         )
         coord.radius_km = float(
             updated_entry.options.get(
-                CONF_RADIUS_KM, updated_entry.data.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM)
+                CONF_RADIUS_KM,
+                updated_entry.data.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM),
             )
         )
         await coord.async_request_refresh()
@@ -193,37 +198,59 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Prefer the "primary" entity_id (avoid _2 suffix etc) so existing dashboards keep working.
             if not candidates:
                 return None
+
             def rank(e: er.RegistryEntry) -> tuple[int, str]:
                 # Lower is better.
                 eid = e.entity_id or ""
                 # crude heuristic: entities ending with _2/_3 are likely duplicates.
                 dup = 1 if eid.rsplit("_", 1)[-1].isdigit() else 0
                 return (dup, eid)
+
             return sorted(candidates, key=rank)[0]
 
         def _migrate_platform(domain: str, prefix: str, target_unique_id: str) -> None:
             # If already migrated, do nothing.
-            if any(e.unique_id == target_unique_id for e in er.async_entries_for_config_entry(ent_reg, entry.entry_id)):
+            if any(
+                e.unique_id == target_unique_id
+                for e in er.async_entries_for_config_entry(ent_reg, entry.entry_id)
+            ):
                 return
             candidates = [
-                e for e in er.async_entries_for_config_entry(ent_reg, entry.entry_id)
-                if e.domain == domain and isinstance(e.unique_id, str) and e.unique_id.startswith(prefix)
+                e
+                for e in er.async_entries_for_config_entry(ent_reg, entry.entry_id)
+                if e.domain == domain
+                and isinstance(e.unique_id, str)
+                and e.unique_id.startswith(prefix)
             ]
             chosen = _pick_best(candidates)
             if not chosen:
                 return
             try:
-                ent_reg.async_update_entity(chosen.entity_id, new_unique_id=target_unique_id)
+                ent_reg.async_update_entity(
+                    chosen.entity_id, new_unique_id=target_unique_id
+                )
             except TypeError:
                 # Older HA versions may not support new_unique_id; in that case we can't auto-migrate.
-                _LOGGER.debug("Entity registry does not support new_unique_id; skipping unique_id migration")
+                _LOGGER.debug(
+                    "Entity registry does not support new_unique_id; skipping unique_id migration"
+                )
 
-        _migrate_platform("sensor", f"{entry.entry_id}_smhi_alert_sensor", f"{entry.entry_id}_smhi_alert_sensor")
-        _migrate_platform("binary_sensor", f"{entry.entry_id}_smhi_alert_active", f"{entry.entry_id}_smhi_alert_active")
+        _migrate_platform(
+            "sensor",
+            f"{entry.entry_id}_smhi_alert_sensor",
+            f"{entry.entry_id}_smhi_alert_sensor",
+        )
+        _migrate_platform(
+            "binary_sensor",
+            f"{entry.entry_id}_smhi_alert_active",
+            f"{entry.entry_id}_smhi_alert_active",
+        )
 
         version = 4
         updated = True
 
     if updated:
-        hass.config_entries.async_update_entry(entry, data=data, options=options, version=version)
+        hass.config_entries.async_update_entry(
+            entry, data=data, options=options, version=version
+        )
     return True
