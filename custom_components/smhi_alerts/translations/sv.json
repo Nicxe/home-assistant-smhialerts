@@ -48,6 +48,10 @@
                     "include_geometry": "Bifoga GeoJSON-geometri för varje varningsområde i sensorns attribut så att UI-kort kan rita det berörda området. Detta kan öka storleken på entity state.",
                     "message_types": "Välj vilka meddelandekategorier som ska inkluderas när Visa meddelanden är aktivt."
                 }
+            },
+            "reload_notice": {
+                "title": "SMHI Alert",
+                "description": "Installationen är klar. Klicka på skicka för att slutföra. Efter installationen, ladda om webbläsarsidan en gång så att dashboard-kortet blir tillgängligt direkt."
             }
         }
     },

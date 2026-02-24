@@ -48,6 +48,10 @@
                     "include_geometry": "Attach GeoJSON geometry for each warning area to the sensor attributes so UI cards can draw the affected area. This can increase entity state size.",
                     "message_types": "Choose which message categories to include when Show messages is enabled."
                 }
+            },
+            "reload_notice": {
+                "title": "SMHI Alert",
+                "description": "Setup is complete. Click submit to finish. After setup, reload the browser page once to make sure the dashboard card is available immediately."
             }
         }
     },
