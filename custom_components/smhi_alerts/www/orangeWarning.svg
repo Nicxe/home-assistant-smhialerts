@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32px" height="32px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Light Mode / Warning Icon / 32x32 / weather-warning-orange-32x32</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Light-Mode-/-Warning-Icon-/-32x32-/-weather-warning-orange-32x32" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <polyline id="Background" fill="#FBB060" fill-rule="nonzero" points="16 3.99999996 28 16 16 28 3.99999996 16 16 3.99999996"></polyline>
+        <path d="M16,1.99999996 C16.5295769,2.00223275 17.0366497,2.21441217 17.41,2.58999996 L17.41,2.58999996 L29.41,14.59 C30.1854472,15.3700749 30.1854472,16.6299251 29.41,17.41 L29.41,17.41 L17.41,29.41 C16.6299251,30.1854472 15.3700749,30.1854472 14.59,29.41 L14.59,29.41 L2.58999996,17.41 C1.81455277,16.6299251 1.81455277,15.3700749 2.58999996,14.59 L2.58999996,14.59 L14.59,2.58999996 C14.9633503,2.21441217 15.4704231,2.00223275 16,2.22354368 Z M16,3.99999996 L3.99999996,16 L16,28 L28,16 L16,3.99999996 Z M16,18 C16.5522848,18 17,18.4477153 17,19 C17,19.5522848 16.5522848,20 16,20 C15.4477152,20 15,19.5522848 15,19 C15,18.4477153 15.4477152,18 16,18 Z M17,12 L17,17 L15,17 L15,12 L17,12 Z" id="Outline" fill="#12212B" fill-rule="nonzero"></path>
+    </g>
+</svg>

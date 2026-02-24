@@ -1,6 +1,17 @@
 from datetime import timedelta
 
 DOMAIN = "smhi_alerts"
+
+# Frontend card resource handling
+CARD_FILENAME = "smhi-alert-card.js"
+CARD_WWW_DIR = "www"
+CARD_STATIC_BASE_PATH = f"/{DOMAIN}-static"
+CARD_CANONICAL_BASE_URL = f"{CARD_STATIC_BASE_PATH}/{CARD_FILENAME}"
+CARD_LEGACY_BASE_URL = f"/local/{CARD_FILENAME}"
+CARD_SIDECAR_SUFFIXES = (".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif")
+FRONTEND_DATA_KEY = f"{DOMAIN}_frontend"
+FRONTEND_DATA_COMPONENT_LISTENER = f"{DOMAIN}_component_listener"
+
 CONF_MODE = "mode"
 CONF_LATITUDE = "latitude"
 CONF_LONGITUDE = "longitude"
