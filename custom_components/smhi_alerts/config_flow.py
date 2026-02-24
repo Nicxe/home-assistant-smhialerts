@@ -69,6 +69,32 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 4
 
+    def __init__(self) -> None:
+        self._pending_entry_title: str | None = None
+        self._pending_entry_data: dict | None = None
+
+    def _show_reload_notice_step(self, *, title: str, data: dict):
+        """Store entry payload and show final reload notice step."""
+        self._pending_entry_title = title
+        self._pending_entry_data = data
+        return self.async_show_form(step_id="reload_notice", data_schema=vol.Schema({}))
+
+    async def async_step_reload_notice(self, user_input=None):
+        """Final confirmation step before creating entry."""
+        if user_input is None:
+            return self.async_show_form(
+                step_id="reload_notice", data_schema=vol.Schema({})
+            )
+
+        if self._pending_entry_title is None or self._pending_entry_data is None:
+            return self.async_abort(reason="entry_not_found")
+
+        title = self._pending_entry_title
+        data = self._pending_entry_data
+        self._pending_entry_title = None
+        self._pending_entry_data = None
+        return self.async_create_entry(title=title, data=data)
+
     async def async_step_reconfigure(self, user_input=None):
         """Handle reconfigure initiated from the UI on an existing entry."""
         errors = {}
@@ -242,6 +268,7 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         errors = {}
         if user_input is not None:
+            user_input = dict(user_input)
             mode = user_input[CONF_MODE]
             language = user_input[CONF_LANGUAGE]
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
@@ -261,10 +288,7 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 self._abort_if_unique_id_configured()
                 title = f"SMHI Alert ({round(lat, 4)},{round(lon, 4)} @ {radius}km)"
-            return self.async_create_entry(
-                title=title,
-                data=user_input,
-            )
+            return self._show_reload_notice_step(title=title, data=user_input)
 
         # Try fetch dynamic areas list; fallback to static
         district_options = []
