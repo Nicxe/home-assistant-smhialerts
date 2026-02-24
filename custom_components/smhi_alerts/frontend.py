@@ -97,7 +97,7 @@ def _write_file_bytes(path: Path, content: bytes) -> None:
 
 async def _async_sync_assets_to_local_www(hass: HomeAssistant) -> None:
     """Sync bundled card and sidecars into /config/www for /local serving."""
-    sources = _bundled_assets()
+    sources = await hass.async_add_executor_job(_bundled_assets)
     if not sources:
         _LOGGER.warning("Missing bundled card directory: %s", _bundled_www_dir_path())
         return
