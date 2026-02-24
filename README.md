@@ -1,70 +1,74 @@
-# Home Assistant - SMHI Weather Warnings & Alerts
+# SMHI Alerts
 
-[![Buy me a Coffee](https://img.shields.io/badge/Support-Buy%20me%20a%20coffee-fdd734?logo=buy-me-a-coffee)](ttps://www.buymeacoffee.com/NiklasV) [![Last commit](https://img.shields.io/github/last-commit/Nicxe/home-assistant-smhialerts)](#) [![Version](https://img.shields.io/github/v/release/Nicxe/home-assistant-smhialerts)](#) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/nicxe/home-assistant-smhialerts/latest/total)
-
+[![Buy me a Coffee](https://img.shields.io/badge/Support-Buy%20me%20a%20coffee-fdd734?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/NiklasV) ![GitHub Release](https://img.shields.io/github/v/release/nicxe/home-assistant-smhialerts) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/nicxe/home-assistant-smhialerts/latest/total)
 
 ## Overview
+SMHI Alerts brings weather warnings and risk messages from the Swedish Meteorological and Hydrological Institute (SMHI) into Home Assistant.
 
-Easily receive and manage SMHI (Swedish Meteorological and Hydrological Institute) weather warnings and alerts directly in Home Assistant, enabling you to trigger actions or display information on your dashboard.
-
-There is also a dashboard card specifically for this integration, which can be found here: [SMHI Alert Card](https://github.com/Nicxe/home-assistant-smhialert-card).
-
-This custom component connects to SMHI's open API to retrieve weather alerts in Sweden, organizing the data by districts and their respective messages. You can choose to receive notifications for all districts or a specific one.
+This repository now contains both:
+- The Home Assistant integration (`smhi_alerts`)
+- The Lovelace alert card (`smhi-alert-card.js`)
 
 ## Installation
 
-You can install this integration as a custom repository by following one of these guides:
-
-### With HACS (Recommended)
-
-To install the custom component using HACS:
-
+### Integration with HACS (recommended)
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Nicxe&repository=home-assistant-smhialerts&category=integration)
 
-or
-1. Install HACS if you don't have it already
-2. Open HACS in Home Assistant
-3. Search for "SMHI"
-4. Click the download button. ⬇️
+You can also add the repository manually in HACS as type **Integration**.
 
+### Integration without HACS
+1. Download `smhi_alerts.zip` from the [latest release](https://github.com/Nicxe/home-assistant-smhialerts/releases).
+2. Extract the archive and place the `smhi_alerts` folder in `config/custom_components/`.
+3. Restart Home Assistant.
 
-<details>
-<summary>Without HACS</summary>
+### Alert card installation
+The alert card is bundled with this integration.
 
-1. Download the latest release of the SMHI Alert integration from **[GitHub Releases](https://github.com/Nicxe/home-assistant-smhialerts/releases)**.
-2. Extract the downloaded files and place the `smhi_alerts` folder in your Home Assistant `custom_components` directory (usually located in the `config/custom_components` directory).
-3. Restart your Home Assistant instance to load the new integration.
+When the integration starts, it automatically:
+- syncs the bundled card to `config/www/smhi-alert-card.js`
+- syncs required sidecar assets (icons) to `config/www/`
+- creates or updates a Lovelace `module` resource at `/local/smhi-alert-card.js?v=...` for cache-busting
 
-</details>
+If you have just installed or updated, reload the browser once to ensure the latest card resource is loaded.
+
+## Card usage
+1. Open your dashboard.
+2. Select **Edit dashboard**.
+3. Add a new card.
+4. Choose **Custom: SMHI Alert Card**.
+
+Manual card type:
+- `custom:smhi-alert-card`
+
+### Manual fallback (if needed)
+Normally no manual Lovelace resource setup is required.
+
+If your dashboard does not load the card automatically, add this resource manually:
+- URL: `/local/smhi-alert-card.js`
+- Type: `JavaScript Module`
 
 ## Configuration
-
-The integration will always show SMHI warnings; however, you can choose whether to show messages or not in the configuration. A message represents a potential risk, such as a risk of water shortage.
-
-To add the integration to your Home Assistant instance, use the button below:
-
-> [!WARNING]
-> It is not recommended to select all districts, as this may lead to the sensor generating a large amount of data. This can exceed the system's storage limits, causing performance issues and potentially resulting in incomplete information.
+To add the integration, use this button:
 
 <p>
-    <a href="https://my.home-assistant.io/redirect/config_flow_start?domain=smhi_alerts" class="my badge" target="_blank">
-        <img src="https://my.home-assistant.io/badges/config_flow_start.svg">
-    </a>
+  <a href="https://my.home-assistant.io/redirect/config_flow_start?domain=smhi_alerts" class="my badge" target="_blank">
+    <img src="https://my.home-assistant.io/badges/config_flow_start.svg" alt="Add SMHI Alerts to Home Assistant">
+  </a>
 </p>
 
-### Manual Configuration
+If needed, add it manually via **Settings > Devices & Services > Add Integration**.
 
-If the button above does not work, you can also perform the following steps manually:
+> [!WARNING]
+> It is not recommended to select all districts, as this may generate large sensor attributes and impact recorder/storage performance.
 
-1. Browse to your Home Assistant instance.
-2. Go to **Settings > Devices & Services**.
-3. In the bottom right corner, select the **Add Integration** button.
-4. From the list, select **SMHI Alerts**.
-5. Follow the on-screen instructions to complete the setup.
+## Release assets and versioning
+Each GitHub release in this repository publishes:
+- `smhi_alerts.zip` for integration installation
 
-## Usage Screenshots
+The bundled alert card and its assets are included inside `smhi_alerts.zip`.
 
-Using the [SMHI Alert Card](https://github.com/Nicxe/home-assistant-smhialert-card):
+## Migration from the old card repository
+If you previously used `Nicxe/home-assistant-smhialert-card`, see [MIGRATION.md](./MIGRATION.md).
 
-<img width="482" height="520" alt="smhi_alert_screenshoot" src="https://github.com/user-attachments/assets/13b65017-d315-48ae-9934-9ed8537163fa" />
-
+## Usage screenshot
+<img width="482" height="520" alt="smhi_alert_screenshot" src="https://github.com/user-attachments/assets/13b65017-d315-48ae-9934-9ed8537163fa" />

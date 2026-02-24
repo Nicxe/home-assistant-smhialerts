@@ -29,6 +29,7 @@ from .const import (
     CONF_MESSAGE_TYPES,
     DEFAULT_MESSAGE_TYPES,
 )
+from .frontend import async_setup_frontend
 from .sensor import SmhiAlertCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the SMHI Alert component."""
     hass.data.setdefault(DOMAIN, {})
+    await async_setup_frontend(hass)
     return True
 
 
