@@ -341,8 +341,8 @@ class SmhiAlertCard extends LitElement {
     const messages = this._visibleMessages();
     const count = Array.isArray(messages) ? messages.length : 0;
 
-    // When empty (including in editor), reserve at least one row for the empty state.
-    return header + (count > 0 ? count : 1);
+    // When empty, only reserve a row for the empty message when it is enabled.
+    return header + (count > 0 ? count : (this._showEmptyMessage() ? 1 : 0));
   }
 
   /**
@@ -464,7 +464,9 @@ class SmhiAlertCard extends LitElement {
     return html`
       <ha-card .header=${header}>
         ${messages.length === 0
-          ? html`<div class="empty">${t('no_alerts')}</div>`
+          ? (this._showEmptyMessage()
+            ? html`<div class="empty">${t('no_alerts')}</div>`
+            : html``)
           : html`<div class="alerts">${this._renderGrouped(messages)}</div>`}
         ${this._renderEditorMetaControls?.() || html``}
       </ha-card>
@@ -995,6 +997,10 @@ class SmhiAlertCard extends LitElement {
     return this.config?.show_header !== false;
   }
 
+  _showEmptyMessage() {
+    return this.config?.show_empty_message !== false;
+  }
+
   updated() {
     // When geometry maps are enabled, create/update maps for alerts where the map is actually rendered.
     this._maybeInitMaps();
@@ -1281,6 +1287,7 @@ class SmhiAlertCard extends LitElement {
     }
     // Defaults
     if (normalized.show_header === undefined) normalized.show_header = true;
+    if (normalized.show_empty_message === undefined) normalized.show_empty_message = true;
     if (normalized.show_area === undefined) normalized.show_area = true;
     if (normalized.show_type === undefined) normalized.show_type = true;
     if (normalized.show_level === undefined) normalized.show_level = true;
@@ -1332,6 +1339,7 @@ class SmhiAlertCard extends LitElement {
       entity: entities.find((e) => e.startsWith('sensor.')) || '',
       title: '',
       show_header: true,
+      show_empty_message: true,
       show_icon: true,
       severity_background: false,
       show_map: false,
@@ -1402,6 +1410,7 @@ class SmhiAlertCardEditor extends LitElement {
       { name: 'entity', label: 'Entity', required: true, selector: { entity: { domain: 'sensor' } } },
       { name: 'title', label: 'Title', selector: { text: {} } },
       { name: 'show_header', label: 'Show header', selector: { boolean: {} } },
+      { name: 'show_empty_message', label: 'Show empty message', selector: { boolean: {} } },
       { name: 'show_icon', label: 'Show icon', selector: { boolean: {} } },
       { name: 'severity_background', label: 'Severity background', selector: { boolean: {} } },
       { name: 'show_map', label: 'Show map (geometry)', selector: { boolean: {} } },
@@ -1441,6 +1450,7 @@ class SmhiAlertCardEditor extends LitElement {
       entity: this._config.entity || '',
       title: this._config.title || '',
       show_header: this._config.show_header !== undefined ? this._config.show_header : true,
+      show_empty_message: this._config.show_empty_message !== undefined ? this._config.show_empty_message : true,
       show_icon: this._config.show_icon !== undefined ? this._config.show_icon : true,
       severity_background: this._config.severity_background !== undefined ? this._config.severity_background : false,
       show_map: this._config.show_map !== undefined ? this._config.show_map : false,
@@ -1661,6 +1671,7 @@ class SmhiAlertCardEditor extends LitElement {
       entity: 'Entity',
       title: 'Title',
       show_header: 'Show header',
+      show_empty_message: 'Show empty message',
       show_icon: 'Show icon',
       severity_background: 'Severity background',
       show_map: 'Show map (geometry)',
