@@ -244,11 +244,15 @@ def _async_component_loaded_listener(hass: HomeAssistant) -> Callable[[], None]:
 async def async_setup_frontend(hass: HomeAssistant) -> None:
     """Set up static card path and Lovelace resource."""
     state: dict[str, Any] = hass.data.setdefault(FRONTEND_DATA_KEY, {})
+    cache_key = await _cache_key_for_dev(hass)
+
+    if state.get("cache_key") != cache_key:
+        await _async_sync_assets_to_local_www(hass)
+        if await _async_ensure_card_resource(hass):
+            state["cache_key"] = cache_key
+
     if state.get("setup_done"):
         return
-
-    await _async_sync_assets_to_local_www(hass)
-    await _async_ensure_card_resource(hass)
 
     if FRONTEND_DATA_COMPONENT_LISTENER not in hass.data:
         hass.data[FRONTEND_DATA_COMPONENT_LISTENER] = _async_component_loaded_listener(
