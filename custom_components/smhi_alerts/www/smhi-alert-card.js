@@ -24,6 +24,50 @@ const redWarningIcon = new URL('./redWarning.svg', import.meta.url).href;
 const LEAFLET_CSS_HREF = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 const LEAFLET_JS_SRC = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 const LEAFLET_ESM_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js';
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors';
+const MAP_TILE_REFERRER_POLICY = 'strict-origin-when-cross-origin';
+const DEFAULT_MAP_TILE_MAX_ZOOM = 18;
+const MAX_MAP_TILE_MAX_ZOOM = 22;
+
+const normalizeMapTileConfig = (config) => {
+  const tileUrl = String(config.map_tile_url || '').trim();
+  const attribution = String(config.map_tile_attribution || '').trim();
+  const rawMaxZoom = config.map_tile_max_zoom;
+  const maxZoom = rawMaxZoom === '' || rawMaxZoom === null || rawMaxZoom === undefined
+    ? DEFAULT_MAP_TILE_MAX_ZOOM
+    : Number(rawMaxZoom);
+
+  if (!Number.isInteger(maxZoom) || maxZoom < 0 || maxZoom > MAX_MAP_TILE_MAX_ZOOM) {
+    throw new Error(`Map tile max zoom must be an integer between 0 and ${MAX_MAP_TILE_MAX_ZOOM}.`);
+  }
+
+  if (tileUrl) {
+    if (!tileUrl.includes('{z}') || !tileUrl.includes('{x}') || !tileUrl.includes('{y}')) {
+      throw new Error('Custom map tile URL must include {z}, {x}, and {y}.');
+    }
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(tileUrl, window.location.href);
+    } catch (err) {
+      throw new Error('Custom map tile URL is invalid.', { cause: err });
+    }
+
+    const isSameOrigin = parsedUrl.origin === window.location.origin;
+    if (parsedUrl.protocol !== 'https:' && !isSameOrigin) {
+      throw new Error('Custom map tile URL must use HTTPS or be same-origin.');
+    }
+    if (!attribution) {
+      throw new Error('Custom map tile attribution is required.');
+    }
+  }
+
+  config.map_tile_url = tileUrl || null;
+  config.map_tile_attribution = tileUrl ? attribution : null;
+  config.map_tile_max_zoom = maxZoom;
+  return config;
+};
 
 class SmhiAlertCard extends LitElement {
   static properties = {
@@ -271,8 +315,22 @@ class SmhiAlertCard extends LitElement {
     .map-status.show {
       opacity: 1;
     }
-    /* Leaflet controls: allow zoom buttons, hide attribution to keep the card clean */
-    .geo-map .leaflet-control-attribution { display: none; }
+    /* Keep provider attribution visible and compact. */
+    .geo-map .leaflet-control-attribution {
+      display: block;
+      max-width: calc(100% - 16px);
+      margin: 0;
+      padding: 2px 6px;
+      overflow-wrap: anywhere;
+      font-size: 10px;
+      line-height: 1.2;
+      color: var(--secondary-text-color);
+      background: color-mix(in srgb, var(--card-background-color) 94%, transparent);
+    }
+    .geo-map .leaflet-control-attribution a {
+      color: inherit;
+      text-decoration: underline;
+    }
     .geo-map .leaflet-control-zoom {
       box-shadow: none;
       border: 1px solid var(--divider-color);
@@ -311,7 +369,10 @@ class SmhiAlertCard extends LitElement {
     // Rensa timers för att undvika minnesläckor
     clearTimeout(this._holdTimer);
     clearTimeout(this._tapTimer);
-    // Rensa Leaflet-kartinstanser
+    this._clearMaps();
+  }
+
+  _clearMaps() {
     for (const [, entry] of this._maps.entries()) {
       try {
         entry?.map?.remove?.();
@@ -327,8 +388,24 @@ class SmhiAlertCard extends LitElement {
       throw new Error('You must specify an entity.');
     }
     const normalized = this._normalizeConfig(config);
+    const tileConfigChanged = this.config
+      && (
+        this.config.map_tile_url !== normalized.map_tile_url
+        || this.config.map_tile_attribution !== normalized.map_tile_attribution
+        || this.config.map_tile_max_zoom !== normalized.map_tile_max_zoom
+      );
+    if (tileConfigChanged) this._clearMaps();
     this.config = normalized;
     this._expanded = {};
+  }
+
+  _mapTileConfig() {
+    const customUrl = this.config?.map_tile_url;
+    return {
+      url: customUrl || OSM_TILE_URL,
+      attribution: customUrl ? this.config.map_tile_attribution : OSM_ATTRIBUTION,
+      maxZoom: this.config?.map_tile_max_zoom ?? DEFAULT_MAP_TILE_MAX_ZOOM,
+    };
   }
 
   getCardSize() {
@@ -1104,7 +1181,7 @@ class SmhiAlertCard extends LitElement {
     if (!entry) {
       const map = L.map(containerEl, {
         zoomControl: this.config?.map_zoom_controls !== false,
-        attributionControl: false,
+        attributionControl: true,
         // Keep wheel zoom off by default so dashboard scroll isn't affected
         scrollWheelZoom: this.config?.map_scroll_wheel === true,
         // Double click zoom is a nice zoom affordance without interfering with page scroll
@@ -1114,9 +1191,11 @@ class SmhiAlertCard extends LitElement {
         touchZoom: true,
         tap: false,
       });
-      const tile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '&copy; OpenStreetMap contributors',
+      const tileConfig = this._mapTileConfig();
+      L.tileLayer(tileConfig.url, {
+        maxZoom: tileConfig.maxZoom,
+        attribution: tileConfig.attribution,
+        referrerPolicy: MAP_TILE_REFERRER_POLICY,
       }).addTo(map);
       entry = { map, layer: null, sig: '', container: containerEl };
       this._maps.set(key, entry);
@@ -1300,6 +1379,7 @@ class SmhiAlertCard extends LitElement {
     if (normalized.show_map === undefined) normalized.show_map = false;
     if (normalized.map_zoom_controls === undefined) normalized.map_zoom_controls = true;
     if (normalized.map_scroll_wheel === undefined) normalized.map_scroll_wheel = false;
+    normalizeMapTileConfig(normalized);
     if (normalized.max_items === undefined) normalized.max_items = 0;
     if (normalized.sort_order === undefined) normalized.sort_order = 'severity_then_time';
     if (normalized.date_format === undefined) normalized.date_format = 'locale';
@@ -1345,6 +1425,9 @@ class SmhiAlertCard extends LitElement {
       show_map: false,
       map_zoom_controls: true,
       map_scroll_wheel: false,
+      map_tile_url: '',
+      map_tile_attribution: '',
+      map_tile_max_zoom: DEFAULT_MAP_TILE_MAX_ZOOM,
       show_area: true,
       show_type: true,
       show_level: true,
@@ -1416,6 +1499,9 @@ class SmhiAlertCardEditor extends LitElement {
       { name: 'show_map', label: 'Show map (geometry)', selector: { boolean: {} } },
       { name: 'map_zoom_controls', label: 'Map zoom controls (+/−)', selector: { boolean: {} } },
       { name: 'map_scroll_wheel', label: 'Map scroll wheel zoom', selector: { boolean: {} } },
+      { name: 'map_tile_url', label: 'Custom map tile URL', selector: { text: {} } },
+      { name: 'map_tile_attribution', label: 'Custom map tile attribution', selector: { text: {} } },
+      { name: 'map_tile_max_zoom', label: 'Map tile maximum zoom', selector: { number: { min: 0, max: MAX_MAP_TILE_MAX_ZOOM, mode: 'box' } } },
       { name: 'max_items', label: 'Max items', selector: { number: { min: 0, mode: 'box' } } },
       {
         name: 'sort_order', label: 'Sort order',
@@ -1456,6 +1542,9 @@ class SmhiAlertCardEditor extends LitElement {
       show_map: this._config.show_map !== undefined ? this._config.show_map : false,
       map_zoom_controls: this._config.map_zoom_controls !== undefined ? this._config.map_zoom_controls : true,
       map_scroll_wheel: this._config.map_scroll_wheel !== undefined ? this._config.map_scroll_wheel : false,
+      map_tile_url: this._config.map_tile_url || '',
+      map_tile_attribution: this._config.map_tile_attribution || '',
+      map_tile_max_zoom: this._config.map_tile_max_zoom ?? DEFAULT_MAP_TILE_MAX_ZOOM,
       max_items: this._config.max_items ?? 0,
       sort_order: this._config.sort_order || 'severity_then_time',
       date_format: this._config.date_format || 'locale',
@@ -1677,6 +1766,9 @@ class SmhiAlertCardEditor extends LitElement {
       show_map: 'Show map (geometry)',
       map_zoom_controls: 'Map zoom controls (+/−)',
       map_scroll_wheel: 'Map scroll wheel zoom',
+      map_tile_url: 'Custom map tile URL',
+      map_tile_attribution: 'Custom map tile attribution',
+      map_tile_max_zoom: 'Map tile maximum zoom',
       max_items: 'Max items',
       sort_order: 'Sort order',
       date_format: 'Date format',
