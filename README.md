@@ -40,6 +40,17 @@ If you have just installed or updated, reload the browser once to ensure the lat
 Manual card type:
 - `custom:smhi-alert-card`
 
+### Map configuration
+Enable **Show map (geometry)** in the card editor to display the affected warning area. The integration option **Include geometry (map polygons)** must also be enabled for the selected SMHI Alerts entry.
+
+The card uses OpenStreetMap by default and includes the required attribution. The following optional settings are available when you want to use another XYZ tile provider:
+
+- **Custom map tile URL**: HTTPS or same-origin URL containing `{z}`, `{x}`, and `{y}`
+- **Custom map tile attribution**: attribution required by the selected provider
+- **Map tile maximum zoom**: highest supported zoom level, from `0` to `22` (default `18`)
+
+Both a custom tile URL and its attribution must be provided together. You can leave these fields empty to continue using the default OpenStreetMap tiles.
+
 ### Manual fallback (if needed)
 Normally no manual Lovelace resource setup is required.
 
