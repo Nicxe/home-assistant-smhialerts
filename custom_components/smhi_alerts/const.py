@@ -112,7 +112,9 @@ MARINE_EVENT_CODES = {"HIGH_SEALEVEL"}
 WARNINGS_URL = (
     "https://opendata-download-warnings.smhi.se/ibww/api/version/1/warning.json"
 )
-AREAS_URL = "https://opendata-download-warnings.smhi.se/ibww/api/version/1/areas.json"
+AREAS_URL = (
+    "https://opendata-download-warnings.smhi.se/ibww/api/version/1/metadata/area.json"
+)
 
 MESSAGE_EVENT_CATEGORIES = [
     {
@@ -183,7 +185,7 @@ MESSAGE_EVENT_CATEGORIES = [
         "label_sv": "Brandrisk",
         "label_en": "Fire risk",
         "mho_code": "MET",
-        "aliases": ["FIRE RISK", "FIRE_RISK"],
+        "aliases": ["FIRE RISK", "FIRE_RISK", "GRASS_FIRE", "FOREST_FIRE"],
     },
     {
         "value": "HIGH_TEMPERATURES",
@@ -225,7 +227,16 @@ MESSAGE_EVENT_CATEGORIES = [
         "label_sv": "Vattenbrist",
         "label_en": "Risk for water shortage",
         "mho_code": "HYD",
-        "aliases": ["WATER SHORTAGE"],
+        "aliases": [
+            "WATER SHORTAGE",
+            "WATERCOURSES",
+            "GROUNDWATER_MINOR",
+            "GROUNDWATER_MAJOR",
+            "GROUNDWATER_MINOR_MAJOR",
+            "WATERCOURSES_GROUNDWATER_MINOR",
+            "WATERCOURSES_GROUNDWATER_MAJOR",
+            "WATERCOURSES_GROUNDWATER_MINOR_MAJOR",
+        ],
     },
     {
         "value": "HIGH_FLOW",

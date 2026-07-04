@@ -1,37 +1,38 @@
+from aiohttp import ClientTimeout
 from homeassistant import config_entries
 from homeassistant.core import callback
-import voluptuous as vol
-from .const import (
-    DOMAIN,
-    DISTRICTS,
-    CONF_DISTRICT,
-    CONF_LANGUAGE,
-    LANGUAGE_OPTIONS,
-    DEFAULT_LANGUAGE,
-    CONF_INCLUDE_MESSAGES,
-    DEFAULT_INCLUDE_MESSAGES,
-    CONF_INCLUDE_GEOMETRY,
-    DEFAULT_INCLUDE_GEOMETRY,
-    AREAS_URL,
-    CONF_MODE,
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
-    CONF_RADIUS_KM,
-    CONF_LOCATION,
-    DEFAULT_MODE,
-    DEFAULT_RADIUS_KM,
-    CONF_EXCLUDE_SEA,
-    DEFAULT_EXCLUDE_SEA,
-    CONF_EXCLUDED_MESSAGE_TYPES,
-    DEFAULT_EXCLUDED_MESSAGE_TYPES,
-    CONF_MESSAGE_TYPES,
-    DEFAULT_MESSAGE_TYPES,
-    MESSAGE_EVENT_CATEGORIES,
-)
+from homeassistant.helpers import aiohttp_client
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import selector
-from homeassistant.helpers import aiohttp_client
-from aiohttp import ClientTimeout
+import voluptuous as vol
+
+from .const import (
+    AREAS_URL,
+    CONF_DISTRICT,
+    CONF_EXCLUDE_SEA,
+    CONF_EXCLUDED_MESSAGE_TYPES,
+    CONF_INCLUDE_GEOMETRY,
+    CONF_INCLUDE_MESSAGES,
+    CONF_LANGUAGE,
+    CONF_LATITUDE,
+    CONF_LOCATION,
+    CONF_LONGITUDE,
+    CONF_MESSAGE_TYPES,
+    CONF_MODE,
+    CONF_RADIUS_KM,
+    DEFAULT_EXCLUDE_SEA,
+    DEFAULT_EXCLUDED_MESSAGE_TYPES,
+    DEFAULT_INCLUDE_GEOMETRY,
+    DEFAULT_INCLUDE_MESSAGES,
+    DEFAULT_LANGUAGE,
+    DEFAULT_MESSAGE_TYPES,
+    DEFAULT_MODE,
+    DEFAULT_RADIUS_KM,
+    DISTRICTS,
+    DOMAIN,
+    LANGUAGE_OPTIONS,
+    MESSAGE_EVENT_CATEGORIES,
+)
 
 
 def _build_message_multiselect_options() -> dict[str, str]:
@@ -62,6 +63,69 @@ def _resolve_entry_message_types(entry):
     if not included:
         included = DEFAULT_MESSAGE_TYPES
     return included
+
+
+def _location_from_input(user_input, default_latitude, default_longitude):
+    """Return a normalized location dict from selector input."""
+    loc = user_input.get(CONF_LOCATION) or {}
+    latitude = loc.get("latitude", default_latitude)
+    longitude = loc.get("longitude", default_longitude)
+    return {"latitude": latitude, "longitude": longitude}
+
+
+def _build_entry_data(user_input, default_latitude, default_longitude):
+    """Build persisted entry data without stale fields from another mode."""
+    data = {
+        CONF_MODE: user_input[CONF_MODE],
+        CONF_LANGUAGE: user_input[CONF_LANGUAGE],
+        CONF_INCLUDE_MESSAGES: user_input.get(
+            CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES
+        ),
+        CONF_INCLUDE_GEOMETRY: user_input.get(
+            CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY
+        ),
+        CONF_MESSAGE_TYPES: user_input.get(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES),
+        CONF_EXCLUDE_SEA: user_input.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA),
+    }
+
+    if user_input[CONF_MODE] == "district":
+        data[CONF_DISTRICT] = user_input[CONF_DISTRICT]
+        return data
+
+    location = _location_from_input(user_input, default_latitude, default_longitude)
+    data[CONF_LOCATION] = location
+    data[CONF_LATITUDE] = location["latitude"]
+    data[CONF_LONGITUDE] = location["longitude"]
+    data[CONF_RADIUS_KM] = user_input[CONF_RADIUS_KM]
+    return data
+
+
+async def _async_get_district_options(hass):
+    """Fetch district options from SMHI metadata, with a static fallback."""
+    district_options = []
+    try:
+        session = aiohttp_client.async_get_clientsession(hass)
+        timeout = ClientTimeout(total=10)
+        async with session.get(AREAS_URL, timeout=timeout) as resp:
+            if resp.status == 200:
+                areas = await resp.json()
+                for area in areas:
+                    area_id = str(area.get("id"))
+                    label = area.get("sv") or area.get("en") or area_id
+                    district_options.append({"label": label, "value": area_id})
+    except Exception:
+        district_options = []
+
+    if not district_options:
+        return [{"label": name, "value": number} for number, name in DISTRICTS.items()]
+
+    if not any(item["value"] == "all" for item in district_options):
+        district_options.append({"label": DISTRICTS["all"], "value": "all"})
+
+    return sorted(
+        district_options,
+        key=lambda item: (item["value"] == "all", item["label"]),
+    )
 
 
 class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -145,41 +209,15 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             user_input = dict(user_input)
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
-            # Update entry data to reflect new baseline configuration
-            new_data = {
-                CONF_MODE: user_input[CONF_MODE],
-                CONF_LANGUAGE: user_input[CONF_LANGUAGE],
-                CONF_INCLUDE_MESSAGES: user_input.get(
-                    CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES
-                ),
-                CONF_INCLUDE_GEOMETRY: user_input.get(
-                    CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY
-                ),
-                CONF_MESSAGE_TYPES: user_input.get(
-                    CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES
-                ),
-            }
+            new_data = _build_entry_data(
+                user_input, self.hass.config.latitude, self.hass.config.longitude
+            )
             if user_input[CONF_MODE] == "district":
-                new_data[CONF_DISTRICT] = user_input[CONF_DISTRICT]
-                new_data[CONF_EXCLUDE_SEA] = user_input.get(
-                    CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA
-                )
                 new_title = f"SMHI Alert ({DISTRICTS.get(new_data[CONF_DISTRICT], new_data[CONF_DISTRICT])})"
             else:
-                # Map location selector to lat/lon plus radius
-                loc = user_input.get(CONF_LOCATION) or {}
-                new_data[CONF_LATITUDE] = loc.get("latitude", self.hass.config.latitude)
-                new_data[CONF_LONGITUDE] = loc.get(
-                    "longitude", self.hass.config.longitude
-                )
-                new_data[CONF_RADIUS_KM] = user_input[CONF_RADIUS_KM]
-                new_data[CONF_EXCLUDE_SEA] = user_input.get(
-                    CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA
-                )
                 new_title = f"SMHI Alert ({round(new_data[CONF_LATITUDE], 4)},{round(new_data[CONF_LONGITUDE], 4)} @ {new_data[CONF_RADIUS_KM]}km)"
 
-            new_options = dict(entry.options)
-            new_options[CONF_MESSAGE_TYPES] = new_data[CONF_MESSAGE_TYPES]
+            new_options = dict(new_data)
             new_options.pop(CONF_EXCLUDED_MESSAGE_TYPES, None)
 
             return self.async_update_reload_and_abort(
@@ -190,24 +228,7 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 title=new_title,
             )
 
-        # Prepare dynamic district options (fallback to static)
-        district_options = []
-        try:
-            session = aiohttp_client.async_get_clientsession(self.hass)
-            timeout = ClientTimeout(total=10)
-            async with session.get(AREAS_URL, timeout=timeout) as resp:
-                if resp.status == 200:
-                    areas = await resp.json()
-                    for area in areas:
-                        area_id = str(area.get("id"))
-                        label = area.get("sv") or area.get("en") or area_id
-                        district_options.append({"label": label, "value": area_id})
-        except Exception:
-            district_options = []
-        if not district_options:
-            district_options = [
-                {"label": name, "value": number} for number, name in DISTRICTS.items()
-            ]
+        district_options = await _async_get_district_options(self.hass)
 
         language_options = [
             {"label": name, "value": code} for code, name in LANGUAGE_OPTIONS.items()
@@ -273,42 +294,26 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             language = user_input[CONF_LANGUAGE]
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
             user_input.setdefault(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY)
+            entry_data = _build_entry_data(
+                user_input, self.hass.config.latitude, self.hass.config.longitude
+            )
             if mode == "district":
-                district = user_input[CONF_DISTRICT]
+                district = entry_data[CONF_DISTRICT]
                 await self.async_set_unique_id(f"district:{district}:{language}")
                 self._abort_if_unique_id_configured()
                 title = f"SMHI Alert ({DISTRICTS.get(district, district)})"
             else:
-                loc = user_input.get(CONF_LOCATION) or {}
-                lat = loc.get("latitude", self.hass.config.latitude)
-                lon = loc.get("longitude", self.hass.config.longitude)
-                radius = user_input.get(CONF_RADIUS_KM, DEFAULT_RADIUS_KM)
+                lat = entry_data[CONF_LATITUDE]
+                lon = entry_data[CONF_LONGITUDE]
+                radius = entry_data[CONF_RADIUS_KM]
                 await self.async_set_unique_id(
                     f"coord:{round(lat, 4)},{round(lon, 4)}:{radius}:{language}"
                 )
                 self._abort_if_unique_id_configured()
                 title = f"SMHI Alert ({round(lat, 4)},{round(lon, 4)} @ {radius}km)"
-            return self._show_reload_notice_step(title=title, data=user_input)
+            return self._show_reload_notice_step(title=title, data=entry_data)
 
-        # Try fetch dynamic areas list; fallback to static
-        district_options = []
-        try:
-            session = aiohttp_client.async_get_clientsession(self.hass)
-            timeout = ClientTimeout(total=10)
-            async with session.get(AREAS_URL, timeout=timeout) as resp:
-                if resp.status == 200:
-                    areas = await resp.json()
-                    # Expecting list of { id, sv, en }
-                    for area in areas:
-                        area_id = str(area.get("id"))
-                        label = area.get("sv") or area.get("en") or area_id
-                        district_options.append({"label": label, "value": area_id})
-        except Exception:
-            district_options = []
-        if not district_options:
-            district_options = [
-                {"label": name, "value": number} for number, name in DISTRICTS.items()
-            ]
+        district_options = await _async_get_district_options(self.hass)
 
         # Prepare language and mode options
         language_options = [
@@ -395,33 +400,12 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
             user_input = dict(user_input)
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
             user_input.setdefault(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY)
-            # Map location into latitude/longitude for coordinator consumption
-            data = dict(self.config_entry.options)
-            data.update(user_input)
-            if CONF_LOCATION in user_input:
-                loc = user_input.get(CONF_LOCATION) or {}
-                data[CONF_LATITUDE] = loc.get("latitude", self.hass.config.latitude)
-                data[CONF_LONGITUDE] = loc.get("longitude", self.hass.config.longitude)
+            data = _build_entry_data(
+                user_input, self.hass.config.latitude, self.hass.config.longitude
+            )
             return self.async_create_entry(title="", data=data)
 
-        # Try dynamic areas again, fallback to static
-        district_options = []
-        try:
-            session = aiohttp_client.async_get_clientsession(self.hass)
-            timeout = ClientTimeout(total=10)
-            async with session.get(AREAS_URL, timeout=timeout) as resp:
-                if resp.status == 200:
-                    areas = await resp.json()
-                    for area in areas:
-                        area_id = str(area.get("id"))
-                        label = area.get("sv") or area.get("en") or area_id
-                        district_options.append({"label": label, "value": area_id})
-        except Exception:
-            district_options = []
-        if not district_options:
-            district_options = [
-                {"label": name, "value": number} for number, name in DISTRICTS.items()
-            ]
+        district_options = await _async_get_district_options(self.hass)
 
         language_options = [
             {"label": name, "value": code} for code, name in LANGUAGE_OPTIONS.items()
