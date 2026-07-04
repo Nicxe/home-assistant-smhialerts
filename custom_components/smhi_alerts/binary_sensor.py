@@ -4,10 +4,10 @@ from typing import Any
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.device_registry import DeviceEntryType
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, DISTRICTS, DEFAULT_NAME, DEFAULT_MODE, DEFAULT_RADIUS_KM
+from .const import DEFAULT_MODE, DEFAULT_NAME, DEFAULT_RADIUS_KM, DISTRICTS, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
