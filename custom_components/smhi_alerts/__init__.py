@@ -1,4 +1,5 @@
 import logging
+from math import isfinite
 from time import monotonic
 
 from homeassistant.config_entries import ConfigEntry
@@ -11,6 +12,8 @@ from .const import (
     CONF_DISTRICT,
     CONF_EXCLUDE_SEA,
     CONF_EXCLUDED_MESSAGE_TYPES,
+    CONF_FIRE_RISK_ENABLED,
+    CONF_FIRE_RISK_LOCATION,
     CONF_INCLUDE_GEOMETRY,
     CONF_INCLUDE_MESSAGES,
     CONF_LANGUAGE,
@@ -21,6 +24,7 @@ from .const import (
     CONF_RADIUS_KM,
     DEFAULT_EXCLUDE_SEA,
     DEFAULT_EXCLUDED_MESSAGE_TYPES,
+    DEFAULT_FIRE_RISK_ENABLED,
     DEFAULT_INCLUDE_GEOMETRY,
     DEFAULT_INCLUDE_MESSAGES,
     DEFAULT_LANGUAGE,
@@ -29,7 +33,9 @@ from .const import (
     DEFAULT_RADIUS_KM,
     DOMAIN,
 )
+from .fire_risk import SmhiFireRiskCoordinator
 from .frontend import async_setup_frontend
+from .runtime_data import SmhiAlertsRuntimeData
 from .sensor import SmhiAlertCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +43,36 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[str] = ["sensor", "binary_sensor"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+def _fire_risk_settings(entry: ConfigEntry) -> tuple[bool, float | None, float | None]:
+    """Read the explicitly configured point without assuming a district centre."""
+    enabled = entry.options.get(
+        CONF_FIRE_RISK_ENABLED,
+        entry.data.get(CONF_FIRE_RISK_ENABLED, DEFAULT_FIRE_RISK_ENABLED),
+    )
+    location = entry.options.get(
+        CONF_FIRE_RISK_LOCATION, entry.data.get(CONF_FIRE_RISK_LOCATION)
+    )
+    if not enabled or not isinstance(location, dict):
+        return bool(enabled), None, None
+    if any(
+        isinstance(location.get(key), bool) for key in (CONF_LATITUDE, CONF_LONGITUDE)
+    ):
+        return True, None, None
+    try:
+        latitude = float(location[CONF_LATITUDE])
+        longitude = float(location[CONF_LONGITUDE])
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return True, None, None
+    if not (
+        isfinite(latitude)
+        and isfinite(longitude)
+        and -90 <= latitude <= 90
+        and -180 <= longitude <= 180
+    ):
+        return True, None, None
+    return True, latitude, longitude
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
@@ -76,9 +112,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
 
+    fire_settings = _fire_risk_settings(entry)
+    fire_coordinator = None
+    enabled, latitude, longitude = fire_settings
+    if enabled and latitude is not None and longitude is not None:
+        fire_coordinator = SmhiFireRiskCoordinator(hass, entry, latitude, longitude)
+        # An optional forecast failure must not block the issued warnings.
+        # CoordinatorEntity subscriptions will retry after an initial failure.
+        await fire_coordinator.async_refresh()
+    elif enabled:
+        _LOGGER.warning(
+            "Fire risk requires a valid location; choose a location in integration options"
+        )
+    entry.runtime_data = SmhiAlertsRuntimeData(
+        warnings=coordinator,
+        fire_risk=fire_coordinator,
+        fire_risk_settings=fire_settings,
+    )
+
     async def _options_updated(hass: HomeAssistant, updated_entry: ConfigEntry):
         domain_data = hass.data.get(DOMAIN, {})
         if updated_entry.entry_id not in domain_data:
+            return
+        if (
+            _fire_risk_settings(updated_entry)
+            != updated_entry.runtime_data.fire_risk_settings
+        ):
+            await hass.config_entries.async_reload(updated_entry.entry_id)
             return
         coord = domain_data[updated_entry.entry_id]["coordinator"]
         coord.mode = updated_entry.options.get(

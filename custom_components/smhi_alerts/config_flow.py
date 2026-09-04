@@ -1,3 +1,6 @@
+from collections.abc import Mapping
+import math
+
 from aiohttp import ClientTimeout
 from homeassistant import config_entries
 from homeassistant.core import callback
@@ -11,6 +14,8 @@ from .const import (
     CONF_DISTRICT,
     CONF_EXCLUDE_SEA,
     CONF_EXCLUDED_MESSAGE_TYPES,
+    CONF_FIRE_RISK_ENABLED,
+    CONF_FIRE_RISK_LOCATION,
     CONF_INCLUDE_GEOMETRY,
     CONF_INCLUDE_MESSAGES,
     CONF_LANGUAGE,
@@ -22,6 +27,7 @@ from .const import (
     CONF_RADIUS_KM,
     DEFAULT_EXCLUDE_SEA,
     DEFAULT_EXCLUDED_MESSAGE_TYPES,
+    DEFAULT_FIRE_RISK_ENABLED,
     DEFAULT_INCLUDE_GEOMETRY,
     DEFAULT_INCLUDE_MESSAGES,
     DEFAULT_LANGUAGE,
@@ -73,10 +79,79 @@ def _location_from_input(user_input, default_latitude, default_longitude):
     return {"latitude": latitude, "longitude": longitude}
 
 
+def _fire_risk_location(user_input):
+    """Validate the separately selected fire forecast point without guessing coverage."""
+    location = user_input.get(CONF_FIRE_RISK_LOCATION)
+    if not location and not user_input.get(CONF_FIRE_RISK_ENABLED, False):
+        return None
+    if not isinstance(location, Mapping):
+        raise ValueError("invalid_fire_risk_location")
+    result = {}
+    for key, limit in (("latitude", 90), ("longitude", 180)):
+        value = location.get(key)
+        if isinstance(value, bool):
+            raise ValueError("invalid_fire_risk_location")
+        try:
+            coordinate = float(value)
+        except (TypeError, ValueError, OverflowError) as err:
+            raise ValueError("invalid_fire_risk_location") from err
+        if not math.isfinite(coordinate) or not -limit <= coordinate <= limit:
+            raise ValueError("invalid_fire_risk_location")
+        result[key] = coordinate
+    return result
+
+
+def _fire_risk_errors(user_input):
+    """Return a field error before persisting an invalid forecast point."""
+    try:
+        _fire_risk_location(user_input)
+    except ValueError:
+        return {CONF_FIRE_RISK_LOCATION: "invalid_fire_risk_location"}
+    return {}
+
+
+def _fire_risk_schema(hass, entry=None):
+    """Show a distinct forecast point, including when warnings use a district."""
+    current = {**entry.data, **entry.options} if entry else {}
+    return {
+        vol.Required(
+            CONF_FIRE_RISK_ENABLED,
+            default=current.get(CONF_FIRE_RISK_ENABLED, DEFAULT_FIRE_RISK_ENABLED),
+        ): cv.boolean,
+        vol.Optional(
+            CONF_FIRE_RISK_LOCATION,
+            description={
+                "suggested_value": current.get(
+                    CONF_FIRE_RISK_LOCATION,
+                    {
+                        "latitude": hass.config.latitude,
+                        "longitude": hass.config.longitude,
+                    },
+                )
+            },
+        ): selector({"location": {}}),
+    }
+
+
+def _preserve_fire_risk_options(user_input, entry):
+    """Keep saved source settings for older clients and when disabling forecasts."""
+    current = {**entry.data, **entry.options}
+    enabled_was_omitted = CONF_FIRE_RISK_ENABLED not in user_input
+    if enabled_was_omitted:
+        user_input[CONF_FIRE_RISK_ENABLED] = current.get(
+            CONF_FIRE_RISK_ENABLED, DEFAULT_FIRE_RISK_ENABLED
+        )
+    if CONF_FIRE_RISK_LOCATION not in user_input and CONF_FIRE_RISK_LOCATION in current:
+        user_input[CONF_FIRE_RISK_LOCATION] = current[CONF_FIRE_RISK_LOCATION]
+
+
 def _build_entry_data(user_input, default_latitude, default_longitude):
     """Build persisted entry data without stale fields from another mode."""
     data = {
         CONF_MODE: user_input[CONF_MODE],
+        CONF_FIRE_RISK_ENABLED: user_input.get(
+            CONF_FIRE_RISK_ENABLED, DEFAULT_FIRE_RISK_ENABLED
+        ),
         CONF_LANGUAGE: user_input[CONF_LANGUAGE],
         CONF_INCLUDE_MESSAGES: user_input.get(
             CONF_INCLUDE_MESSAGES, DEFAULT_INCLUDE_MESSAGES
@@ -87,6 +162,10 @@ def _build_entry_data(user_input, default_latitude, default_longitude):
         CONF_MESSAGE_TYPES: user_input.get(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES),
         CONF_EXCLUDE_SEA: user_input.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA),
     }
+
+    fire_location = _fire_risk_location(user_input)
+    if fire_location is not None:
+        data[CONF_FIRE_RISK_LOCATION] = fire_location
 
     if user_input[CONF_MODE] == "district":
         data[CONF_DISTRICT] = user_input[CONF_DISTRICT]
@@ -208,6 +287,10 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             user_input = dict(user_input)
+            _preserve_fire_risk_options(user_input, entry)
+            errors = _fire_risk_errors(user_input)
+
+        if user_input is not None and not errors:
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
             new_data = _build_entry_data(
                 user_input, self.hass.config.latitude, self.hass.config.longitude
@@ -282,7 +365,11 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(
-            step_id="reconfigure", data_schema=data_schema, errors=errors
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema.extend(_fire_risk_schema(self.hass, entry)), user_input
+            ),
+            errors=errors,
         )
 
     async def async_step_user(self, user_input=None):
@@ -290,6 +377,9 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             user_input = dict(user_input)
+            errors = _fire_risk_errors(user_input)
+
+        if user_input is not None and not errors:
             mode = user_input[CONF_MODE]
             language = user_input[CONF_LANGUAGE]
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
@@ -380,7 +470,9 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=data_schema,
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema.extend(_fire_risk_schema(self.hass)), user_input
+            ),
             errors=errors,
         )
 
@@ -398,6 +490,10 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
         errors = {}
         if user_input is not None:
             user_input = dict(user_input)
+            _preserve_fire_risk_options(user_input, self.config_entry)
+            errors = _fire_risk_errors(user_input)
+
+        if user_input is not None and not errors:
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
             user_input.setdefault(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY)
             data = _build_entry_data(
@@ -519,6 +615,9 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=data_schema,
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema.extend(_fire_risk_schema(self.hass, self.config_entry)),
+                user_input,
+            ),
             errors=errors,
         )

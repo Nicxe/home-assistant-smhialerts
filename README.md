@@ -72,6 +72,76 @@ If needed, add it manually via **Settings > Devices & Services > Add Integration
 > [!WARNING]
 > It is not recommended to select all districts, as this may generate large sensor attributes and impact recorder/storage performance.
 
+### Optional local fire risk
+
+Open **Settings > Devices & Services > SMHI Alerts > Configure**. Enable
+**Enable local fire risk forecasts** and confirm the **Fire risk location (map)** on its separate
+map. This point is independent of the district or radius used for official
+warnings. SMHI provides useful fire risk data for land and inland waters in Sweden;
+coverage and seasonal availability vary by parameter.
+
+The option adds three sensors to the existing device:
+
+| Sensor | Daily forecast |
+| --- | --- |
+| Forest fire risk | SMHI's forest fire classification, from very low to extreme (5E) |
+| Grass fire risk | Low to very high risk, or SMHI's explicit snow-covered / grass fire season over classifications |
+| Forest fuel drying | Forest fuel conditions, from very wet to extremely dry (5E) |
+
+These are **local model forecasts**, separate from issued SMHI warnings and
+messages. They describe the selected day, not an observed fire or a legal burning
+ban. They do not alter the existing alert sensor, active binary sensor, warning
+counts or severity. The feature is off by default and needs no API key.
+
+In the alert card editor, select **Fire risk sensor (optional)** and choose one of the
+new sensors. A separate section shows today's three values and expandable daily
+forecasts. An existing card works as before when this field is empty.
+
+```yaml
+type: custom:smhi-alert-card
+entity: sensor.your_smhi_alerts
+fire_risk_entity: sensor.your_forest_fire_risk
+```
+
+The forecast covers today and up to five following days, selected using the
+calendar in Sweden (including daylight saving time). The integration checks for
+a newly approved forecast every 30 minutes and reuses cached point data when the
+approval time is unchanged. Today's values change at Swedish midnight without
+another download. Forecasts approved more than 18 hours ago become unavailable;
+temporary API failures also make the fire sensors unavailable while official
+warnings keep working. A missing individual class is `unknown`, never zero or
+"no risk". SMHI's `-1` value does not reliably distinguish missing data from
+seasonal absence.
+
+The sensors expose `raw_class`, `forecast_date`, `valid_time`, `approved_time`,
+`reference_time`, `current`, `forecast`, and the returned grid point. Forest risk
+and fuel drying raw class `6` are displayed as **5E**. Grass fire uses its own
+classification. Large `current` and `forecast` attributes are excluded from
+recorder history. Entity IDs remain stable when the point changes or the option
+is turned off and on. Turning the feature off stops its downloads; remove the
+optional card entity if you no longer want to display it.
+
+Source: [SMHI daily fire risk API](https://opendata.smhi.se/metfcst/fwif/introduction),
+[parameter definitions](https://opendata.smhi.se/metfcst/fwif/parameters),
+[forecast publication times](https://opendata.smhi.se/metfcst/fwif/approved_time).
+
+### Development checks
+
+Use Python 3.14 and Node.js 22 or newer. In a virtual environment, install
+`requirements-test.txt`, then run:
+
+```sh
+python -m pytest -q
+ruff check custom_components/smhi_alerts conftest.py
+ruff format --check custom_components/smhi_alerts conftest.py
+node --input-type=module --check < custom_components/smhi_alerts/www/smhi-alert-card.js
+```
+
+The regression suite mocks external requests and includes real Home Assistant
+config-entry setup, options, reload and unload, API parsing/cache failures and
+card behavior. The pinned test harness uses Home Assistant 2026.1.2; runtime
+verification should also be performed on the target Home Assistant version.
+
 ## Release assets and versioning
 Each GitHub release in this repository publishes:
 - `smhi_alerts.zip` for integration installation

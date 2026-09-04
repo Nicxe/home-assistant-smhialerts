@@ -29,6 +29,11 @@ const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright
 const MAP_TILE_REFERRER_POLICY = 'strict-origin-when-cross-origin';
 const DEFAULT_MAP_TILE_MAX_ZOOM = 18;
 const MAX_MAP_TILE_MAX_ZOOM = 22;
+const FIRE_RISK_VALUES = {
+  forest_fire_risk: ['very_low', 'low', 'moderate', 'high', 'very_high', 'extreme'],
+  grass_fire_risk: ['snow_covered', 'season_over', 'low', 'moderate', 'high', 'very_high'],
+  forest_dryness: ['very_wet', 'wet', 'moderately_wet', 'dry', 'very_dry', 'extremely_dry'],
+};
 
 const normalizeMapTileConfig = (config) => {
   const tileUrl = String(config.map_tile_url || '').trim();
@@ -105,6 +110,34 @@ class SmhiAlertCard extends LitElement {
       /* No vertical padding: otherwise it becomes visible whitespace between stacked cards */
       padding: 0 var(--smhi-alert-outer-padding, 0px);
     }
+    .fire-risk {
+      margin: 8px var(--smhi-alert-outer-padding, 0px) 0;
+      padding: 14px 12px;
+      border: 1px solid var(--divider-color);
+      border-radius: var(--smhi-alert-border-radius, 8px);
+      background: var(--card-background-color);
+      color: var(--primary-text-color);
+    }
+    .fire-risk-heading { display: flex; align-items: center; gap: 8px; }
+    .fire-risk-heading ha-icon { --mdc-icon-size: 22px; color: var(--secondary-text-color); }
+    .fire-risk h3 { margin: 0; font-size: 1em; font-weight: 600; }
+    .fire-risk-caption, .fire-risk-updated { color: var(--secondary-text-color); font-size: 0.8em; line-height: 1.5; }
+    .fire-risk-caption { margin: 5px 0 12px; }
+    .fire-risk-current { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+    .fire-risk-current dt { color: var(--secondary-text-color); font-size: 0.8em; line-height: 1.4; }
+    .fire-risk-current dd { margin: 4px 0 0; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+    .fire-risk-unknown { color: var(--secondary-text-color); }
+    .fire-risk-unavailable { margin: 0; color: var(--secondary-text-color); }
+    .fire-risk-forecast { margin-top: 14px; border-top: 1px solid var(--divider-color); }
+    .fire-risk-forecast summary { padding: 12px 0 4px; cursor: pointer; font-size: 0.9em; }
+    .fire-risk-forecast summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+    .fire-risk-forecast table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 6px; font-size: 0.8em; }
+    .fire-risk-forecast th, .fire-risk-forecast td { padding: 9px 4px; text-align: start; vertical-align: top; line-height: 1.4; overflow-wrap: anywhere; }
+    .fire-risk-forecast thead th { color: var(--secondary-text-color); font-weight: 400; }
+    .fire-risk-forecast tbody th { font-weight: 500; }
+    .fire-risk-forecast tbody tr + tr { border-top: 1px solid var(--divider-color); }
+    .fire-risk-forecast th:first-child { width: 20%; padding-inline-start: 0; }
+    .fire-risk-updated { margin-top: 12px; }
     .area-group {
       display: flex;
       flex-direction: column;
@@ -419,7 +452,8 @@ class SmhiAlertCard extends LitElement {
     const count = Array.isArray(messages) ? messages.length : 0;
 
     // When empty, only reserve a row for the empty message when it is enabled.
-    return header + (count > 0 ? count : (this._showEmptyMessage() ? 1 : 0));
+    return header + (count > 0 ? count : (this._showEmptyMessage() ? 1 : 0))
+      + (this.config?.fire_risk_entity ? 3 : 0);
   }
 
   /**
@@ -545,8 +579,90 @@ class SmhiAlertCard extends LitElement {
             ? html`<div class="empty">${t('no_alerts')}</div>`
             : html``)
           : html`<div class="alerts">${this._renderGrouped(messages)}</div>`}
+        ${this._renderFireRisk()}
         ${this._renderEditorMetaControls?.() || html``}
       </ha-card>
+    `;
+  }
+
+  _fireRiskToday() {
+    return new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Stockholm', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
+  }
+
+  _fireRiskDay(row) {
+    if (!row || typeof row !== 'object' || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) return null;
+    const date = new Date(`${row.date}T12:00:00Z`);
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== row.date) return null;
+    const result = { date: row.date };
+    for (const [key, values] of Object.entries(FIRE_RISK_VALUES)) {
+      result[key] = values.includes(row[key]) ? row[key] : null;
+    }
+    return result;
+  }
+
+  _fireRiskData() {
+    const state = this.hass?.states?.[this.config?.fire_risk_entity];
+    const attrs = state?.attributes;
+    if (!state || (state.state !== 'unknown' && !Object.values(FIRE_RISK_VALUES).some((values) => values.includes(state.state)))
+      || attrs?.source_kind !== 'local_fire_risk_forecast') return null;
+    const today = this._fireRiskToday();
+    const current = this._fireRiskDay(attrs.current);
+    const seen = new Set();
+    const forecast = (Array.isArray(attrs.forecast) ? attrs.forecast : [])
+      .map((row) => this._fireRiskDay(row))
+      .filter((row) => row && row.date > today)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .filter((row) => !seen.has(row.date) && seen.add(row.date))
+      .slice(0, 6);
+    return { current: current?.date === today ? current : null, forecast, approved: attrs.approved_time };
+  }
+
+  _fireRiskLabel(key, value) {
+    if (!FIRE_RISK_VALUES[key]?.includes(value)) return this._t('fire_unknown');
+    const label = this._t(`fire_${key}_${value}`);
+    return value === 'extreme' || value === 'extremely_dry' ? `5E · ${label}` : label;
+  }
+
+  _fireRiskDate(value) {
+    return new Intl.DateTimeFormat(this.hass?.language || 'en', {
+      weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC',
+    }).format(new Date(`${value}T12:00:00Z`));
+  }
+
+  _renderFireRisk() {
+    if (!this.config?.fire_risk_entity) return html``;
+    const data = this._fireRiskData();
+    const keys = Object.keys(FIRE_RISK_VALUES);
+    const approved = data?.approved && this._parseDate(data.approved);
+    return html`
+      <section class="fire-risk" aria-label=${this._t('fire_title')}>
+        <div class="fire-risk-heading">
+          <ha-icon icon="mdi:pine-tree" aria-hidden="true"></ha-icon>
+          <h3>${this._t('fire_title')}</h3>
+        </div>
+        <p class="fire-risk-caption">${this._t('fire_caption')}</p>
+        ${data?.current ? html`
+          <dl class="fire-risk-current">
+            ${keys.map((key) => html`<div>
+              <dt>${this._t(`fire_${key}`)}</dt>
+              <dd class=${data.current[key] ? '' : 'fire-risk-unknown'}>${this._fireRiskLabel(key, data.current[key])}</dd>
+            </div>`)}
+          </dl>` : html`<p class="fire-risk-unavailable">${this._t('fire_unavailable')}</p>`}
+        ${data?.forecast.length ? html`
+          <details class="fire-risk-forecast">
+            <summary>${this._t('fire_forecast')} (${data.forecast.length})</summary>
+            <table>
+              <thead><tr><th scope="col">${this._t('fire_day')}</th>${keys.map((key) => html`<th scope="col">${this._t(`fire_${key}`)}</th>`)}</tr></thead>
+              <tbody>${data.forecast.map((row) => html`
+                <tr><th scope="row">${this._fireRiskDate(row.date)}</th>${keys.map((key) => html`
+                  <td class=${row[key] ? '' : 'fire-risk-unknown'}>${this._fireRiskLabel(key, row[key])}</td>`)}</tr>
+              `)}</tbody>
+            </table>
+          </details>` : html``}
+        ${approved ? html`<div class="fire-risk-updated">SMHI · ${this._t('fire_updated')} ${this._formatDate(approved)}</div>` : html``}
+      </section>
     `;
   }
 
@@ -1305,7 +1421,12 @@ class SmhiAlertCard extends LitElement {
       const messages = stateObj?.attributes?.messages || [];
       // Include details/descr to re-render when description text changes
       const msgKey = JSON.stringify(messages?.map((m) => [m.code, m.area, m.start, m.published, m.details, m.descr]));
-      const combinedKey = `${lastUpdate}|${msgKey}`;
+      const fireState = this.hass.states?.[this.config?.fire_risk_entity];
+      const fireKey = this.config?.fire_risk_entity ? JSON.stringify([
+        fireState?.state, fireState?.attributes?.source_kind, fireState?.attributes?.current,
+        fireState?.attributes?.forecast, fireState?.attributes?.approved_time, this._fireRiskToday(),
+      ]) : '';
+      const combinedKey = `${lastUpdate}|${msgKey}|${fireKey}|${this.hass.language}`;
       if (this._lastKey !== combinedKey) {
         this._lastKey = combinedKey;
         return true;
@@ -1316,7 +1437,7 @@ class SmhiAlertCard extends LitElement {
   }
 
   _t(key) {
-    const lang = (this.hass?.language || 'en').toLowerCase();
+    const lang = (this.hass?.language || 'en').toLowerCase().split('-')[0];
     const dict = {
       en: {
         no_alerts: 'No alerts',
@@ -1335,6 +1456,34 @@ class SmhiAlertCard extends LitElement {
         map_loading_leaflet: 'Loading map (Leaflet)…',
         map_rendering: 'Rendering area…',
         map_failed: 'Map failed to load (blocked by browser/HA CSP)',
+        fire_title: 'Local fire risk',
+        fire_caption: 'Forecast for the selected point · Today. Fire restrictions are issued separately.',
+        fire_forest_fire_risk: 'Forest',
+        fire_grass_fire_risk: 'Grass',
+        fire_forest_dryness: 'Fuel dryness',
+        fire_forecast: 'Coming days',
+        fire_day: 'Day',
+        fire_updated: 'Updated',
+        fire_unavailable: 'Today’s fire risk is unavailable',
+        fire_unknown: 'No data',
+        fire_forest_fire_risk_very_low: 'Very low',
+        fire_forest_fire_risk_low: 'Low',
+        fire_forest_fire_risk_moderate: 'Moderate',
+        fire_forest_fire_risk_high: 'High',
+        fire_forest_fire_risk_very_high: 'Very high',
+        fire_forest_fire_risk_extreme: 'Extreme',
+        fire_grass_fire_risk_snow_covered: 'Snow covered',
+        fire_grass_fire_risk_season_over: 'Season over',
+        fire_grass_fire_risk_low: 'Low',
+        fire_grass_fire_risk_moderate: 'Moderate',
+        fire_grass_fire_risk_high: 'High',
+        fire_grass_fire_risk_very_high: 'Very high',
+        fire_forest_dryness_very_wet: 'Very wet',
+        fire_forest_dryness_wet: 'Wet',
+        fire_forest_dryness_moderately_wet: 'Moderately wet',
+        fire_forest_dryness_dry: 'Dry',
+        fire_forest_dryness_very_dry: 'Very dry',
+        fire_forest_dryness_extremely_dry: 'Extremely dry',
       },
       sv: {
         no_alerts: 'Inga varningar',
@@ -1353,6 +1502,34 @@ class SmhiAlertCard extends LitElement {
         map_loading_leaflet: 'Laddar karta (Leaflet)…',
         map_rendering: 'Ritar område…',
         map_failed: 'Kartan kunde inte laddas (blockerad av webbläsare/HA CSP)',
+        fire_title: 'Lokal brandrisk',
+        fire_caption: 'Prognos för vald punkt · Idag. Eldningsförbud beslutas separat.',
+        fire_forest_fire_risk: 'Skog',
+        fire_grass_fire_risk: 'Gräs',
+        fire_forest_dryness: 'Bränsleuttorkning',
+        fire_forecast: 'Kommande dagar',
+        fire_day: 'Dag',
+        fire_updated: 'Uppdaterad',
+        fire_unavailable: 'Dagens brandrisk är inte tillgänglig',
+        fire_unknown: 'Data saknas',
+        fire_forest_fire_risk_very_low: 'Mycket liten',
+        fire_forest_fire_risk_low: 'Liten',
+        fire_forest_fire_risk_moderate: 'Måttlig',
+        fire_forest_fire_risk_high: 'Stor',
+        fire_forest_fire_risk_very_high: 'Mycket stor',
+        fire_forest_fire_risk_extreme: 'Extremt stor',
+        fire_grass_fire_risk_snow_covered: 'Snötäckt mark',
+        fire_grass_fire_risk_season_over: 'Säsongen är slut',
+        fire_grass_fire_risk_low: 'Liten',
+        fire_grass_fire_risk_moderate: 'Måttlig',
+        fire_grass_fire_risk_high: 'Stor',
+        fire_grass_fire_risk_very_high: 'Mycket stor',
+        fire_forest_dryness_very_wet: 'Mycket blött',
+        fire_forest_dryness_wet: 'Blött',
+        fire_forest_dryness_moderately_wet: 'Måttligt blött',
+        fire_forest_dryness_dry: 'Torrt',
+        fire_forest_dryness_very_dry: 'Mycket torrt',
+        fire_forest_dryness_extremely_dry: 'Extremt torrt',
       },
     };
     return (dict[lang] || dict.en)[key] || key;
@@ -1360,6 +1537,10 @@ class SmhiAlertCard extends LitElement {
 
   _normalizeConfig(config) {
     const normalized = { ...config };
+    normalized.fire_risk_entity = typeof config.fire_risk_entity === 'string' ? config.fire_risk_entity.trim() : '';
+    if (normalized.fire_risk_entity && !/^sensor\.[a-z0-9_]+$/.test(normalized.fire_risk_entity)) {
+      throw new Error('Fire risk entity must be a sensor entity ID.');
+    }
     // Backwards compatibility mappings
     if (normalized.show_text === undefined && normalized.show_details !== undefined) {
       normalized.show_text = normalized.show_details;
@@ -1491,6 +1672,7 @@ class SmhiAlertCardEditor extends LitElement {
     const dateFormatLabel = lang.startsWith('sv') ? 'Datumformat' : 'Date format';
     const schema = [
       { name: 'entity', label: 'Entity', required: true, selector: { entity: { domain: 'sensor' } } },
+      { name: 'fire_risk_entity', label: lang.startsWith('sv') ? 'Brandrisksensor (valfri)' : 'Fire risk sensor (optional)', selector: { entity: { filter: { domain: 'sensor', integration: 'smhi_alerts', device_class: 'enum' } } } },
       { name: 'title', label: 'Title', selector: { text: {} } },
       { name: 'show_header', label: 'Show header', selector: { boolean: {} } },
       { name: 'show_empty_message', label: 'Show empty message', selector: { boolean: {} } },
@@ -1534,6 +1716,7 @@ class SmhiAlertCardEditor extends LitElement {
 
     const data = {
       entity: this._config.entity || '',
+      fire_risk_entity: this._config.fire_risk_entity || '',
       title: this._config.title || '',
       show_header: this._config.show_header !== undefined ? this._config.show_header : true,
       show_empty_message: this._config.show_empty_message !== undefined ? this._config.show_empty_message : true,
