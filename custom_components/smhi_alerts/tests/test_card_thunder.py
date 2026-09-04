@@ -26,10 +26,10 @@ globalThis.window = {
   location: { href: 'https://ha.test/', origin: 'https://ha.test' },
 };
 await import(pathToFileURL(process.argv[2]));
-const Card = elements.get('smhi-alert-card');
-const Editor = elements.get('smhi-alert-card-editor');
+const Card = elements.get('smhi-thunder-card');
+const Editor = elements.get('smhi-thunder-card-editor');
 const card = new Card();
-card.setConfig({ entity: 'sensor.alerts', thunder_probability_entity: 'sensor.thunder' });
+card.setConfig({ entity: 'sensor.thunder' });
 card._thunderNow = () => Date.parse('2026-09-04T10:30:00Z');
 const point = (time, probability) => ({ valid_time: time, probability });
 const thunder = (state = '0', overrides = {}) => ({
@@ -63,9 +63,9 @@ def run_card(script: str) -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_zero_is_valid_at_next_timestamp_without_changing_official_alerts() -> None:
+def test_zero_is_valid_at_next_timestamp_without_a_warning_sensor() -> None:
     run_card("""
-const before = JSON.stringify(card.hass.states['sensor.alerts']);
+delete card.hass.states['sensor.alerts'];
 const data = card._thunderData();
 assert.equal(data.current.probability, 0);
 assert.equal(data.current.valid_time, '2026-09-04T11:00:00.000Z');
@@ -73,10 +73,12 @@ const rendered = output(card.render());
 assert.ok(rendered.includes('0 %'));
 assert.ok(rendered.includes('Nästa prognostid'));
 assert.ok(rendered.includes('datetime=2026-09-04T11:00:00.000Z'));
-assert.ok(rendered.indexOf('Inga varningar') < rendered.indexOf('Åsksannolikhet'));
+assert.ok(!rendered.includes('Inga varningar'));
+assert.ok(rendered.includes('Åsksannolikhet'));
+assert.ok(rendered.includes('<ha-card>'));
 assert.ok(rendered.includes('Prognostider · Nästa 48 timmar'));
 assert.ok(!rendered.includes('intervalParametersStartTime'));
-assert.equal(JSON.stringify(card.hass.states['sensor.alerts']), before);
+assert.equal(card.hass.states['sensor.alerts'], undefined);
 """)
 
 
@@ -165,22 +167,16 @@ assert.equal(data.forecast.at(-1).valid_time, '2026-09-06T10:30:00.000Z');
 """)
 
 
-def test_optional_source_and_wrong_source_do_not_change_existing_card_behavior() -> (
-    None
-):
+def test_wrong_source_cannot_masquerade_as_thunder_probability() -> None:
     run_card("""
-card.setConfig({ entity: 'sensor.alerts', show_header: false, show_empty_message: false });
-assert.equal(card.getCardSize(), 0);
-assert.ok(!output(card.render()).includes('Åsksannolikhet'));
-card.setConfig({ entity: 'sensor.alerts', thunder_probability_entity: 'sensor.thunder', show_header: false, show_empty_message: false });
-assert.equal(card.getCardSize(), 3);
+assert.ok(card.getCardSize() > 0);
 card.hass.states['sensor.thunder'].attributes.source_kind = 'local_fire_risk_forecast';
 assert.equal(card._thunderData(), null);
 card.hass.states['sensor.thunder'] = thunder('0', { probability_unit: 'fraction' });
 assert.equal(card._thunderData(), null);
 delete card.hass.states['sensor.thunder'];
 assert.equal(card._thunderData(), null);
-assert.throws(() => card.setConfig({ entity: 'sensor.alerts', thunder_probability_entity: 'weather.home' }));
+assert.throws(() => card.setConfig({ entity: 'weather.home' }));
 """)
 
 
@@ -206,16 +202,164 @@ card.hass.states['sensor.thunder'].state = 'unavailable';
 card.hass.states['sensor.rain'] = { state: '20', attributes: { unit_of_measurement: '%' } };
 const editor = new Editor();
 editor.hass = card.hass;
-editor.setConfig({ entity: 'sensor.alerts', thunder_probability_entity: 'sensor.thunder' });
+editor.setConfig({ entity: 'sensor.thunder' });
 const rendered = JSON.stringify(editor.render());
-assert.ok(rendered.includes('Åsksannolikhetssensor (valfri)'));
+assert.equal(editor._computeLabel({ name: 'entity' }), 'Sensor');
 assert.ok(rendered.includes('"include_entities":["sensor.thunder"]'));
 const includeList = rendered.match(/"include_entities":(\[[^\]]*\])/)[1];
 assert.deepEqual(JSON.parse(includeList), ['sensor.thunder']);
 let event;
 globalThis.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
 editor.dispatchEvent = (value) => { event = value; };
-editor._valueChanged({ detail: { value: { thunder_probability_entity: '' } } });
-assert.equal(event.detail.config.entity, 'sensor.alerts');
-assert.equal(event.detail.config.thunder_probability_entity, '');
+editor._valueChanged({ detail: { value: { show_forecast: false } } });
+assert.equal(event.detail.config.entity, 'sensor.thunder');
+assert.equal(event.detail.config.show_forecast, false);
+""")
+
+
+def test_separate_card_registration_stubs_and_editor_events() -> None:
+    run_card("""
+assert.deepEqual(window.customCards.map((item) => item.type).sort(),
+  ['smhi-alert-card', 'smhi-fire-risk-card', 'smhi-thunder-card']);
+assert.deepEqual(Card.getStubConfig(card.hass), { entity: 'sensor.thunder' });
+const fireCard = elements.get('smhi-fire-risk-card');
+assert.deepEqual(fireCard.getStubConfig(card.hass), { entity: '' });
+card.setConfig(Card.getStubConfig({ states: {} }));
+assert.ok(output(card.render()).includes('Aktivera lokal åsksannolikhet'));
+globalThis.document = { createElement: (name) => name };
+assert.equal(Card.getConfigElement(), 'smhi-thunder-card-editor');
+assert.equal(fireCard.getConfigElement(), 'smhi-fire-risk-card-editor');
+const editor = new Editor();
+editor.hass = card.hass;
+editor.setConfig({ entity: 'sensor.thunder', title: 'Åska' });
+let emitted;
+globalThis.CustomEvent = class { constructor(type, init) { this.type = type; Object.assign(this, init); } };
+editor.dispatchEvent = (event) => { emitted = event; };
+editor._valueChanged({ detail: { value: { show_forecast: false } } });
+assert.equal(emitted.type, 'config-changed');
+assert.equal(emitted.bubbles, true);
+assert.equal(emitted.composed, true);
+assert.deepEqual(emitted.detail.config, { entity: 'sensor.thunder', title: 'Åska', show_forecast: false });
+""")
+
+
+def test_warning_card_does_not_render_or_edit_local_forecasts() -> None:
+    run_card("""
+const Alert = elements.get('smhi-alert-card');
+const alerts = new Alert();
+alerts.hass = card.hass;
+alerts.setConfig({ entity: 'sensor.alerts', show_header: false, show_empty_message: false,
+  fire_risk_entity: 'sensor.thunder', thunder_probability_entity: 'sensor.thunder' });
+assert.equal(alerts.getCardSize(), 0);
+assert.ok(!output(alerts.render()).includes('Åsksannolikhet'));
+assert.ok(!output(alerts.render()).includes('Lokal brandrisk'));
+const changed = new Map([['hass', {}]]);
+assert.equal(alerts.shouldUpdate(changed), true);
+card.hass.states['sensor.thunder'].attributes.current.probability = 95;
+assert.equal(alerts.shouldUpdate(changed), false);
+const editor = new (elements.get('smhi-alert-card-editor'))();
+editor.hass = card.hass;
+editor.setConfig({ entity: 'sensor.alerts' });
+const editorOutput = JSON.stringify(editor.render());
+assert.ok(!editorOutput.includes('thunder_probability_entity'));
+assert.ok(!editorOutput.includes('fire_risk_entity'));
+""")
+
+
+def test_forecast_visibility_title_and_expansion_are_independent() -> None:
+    run_card("""
+card.setConfig({ entity: 'sensor.thunder', title: 'Min åska', show_forecast: false });
+let rendered = output(card.render());
+assert.ok(rendered.includes('Min åska'));
+assert.ok(rendered.includes('0 %'));
+assert.ok(!rendered.includes('<details'));
+card.setConfig({ entity: 'sensor.thunder', forecast_expanded: true });
+assert.equal(card._forecastOpen, true);
+card._forecastToggled({ target: { open: false } });
+card.hass = { ...card.hass };
+assert.equal(card._forecastOpen, false);
+assert.ok(output(card.render()).includes('24 %'));
+assert.equal(card.getGridOptions().rows, undefined);
+""")
+
+
+def test_forecast_clock_refresh_is_cancelled_when_card_is_removed() -> None:
+    run_card("""
+window.LitElement.prototype.connectedCallback = () => {};
+window.LitElement.prototype.disconnectedCallback = () => {};
+let tick, interval, cleared, updates = 0;
+globalThis.setInterval = (callback, duration) => { tick = callback; interval = duration; return 19; };
+globalThis.clearInterval = (id) => { cleared = id; };
+card.requestUpdate = () => { updates++; };
+card.connectedCallback();
+assert.equal(interval, 60000);
+tick();
+assert.equal(updates, 1);
+card.disconnectedCallback();
+assert.equal(cleared, 19);
+""")
+
+
+@pytest.mark.parametrize("card_type", ["smhi-fire-risk-card", "smhi-thunder-card"])
+def test_user_clock_format_overrides_language_and_handles_midnight(
+    card_type: str,
+) -> None:
+    run_card(f"""
+const forecastCard = new (elements.get({json.dumps(card_type)}))();
+forecastCard.setConfig({{ entity: 'sensor.thunder' }});
+forecastCard.hass = {{ ...card.hass, language: 'en', config: {{ time_zone: 'Europe/Stockholm' }},
+  locale: {{ language: 'en', time_format: '24', time_zone: 'server' }} }};
+assert.match(forecastCard._formatDate('2026-09-04T17:00:00Z'), /19:00/);
+assert.doesNotMatch(forecastCard._formatDate('2026-09-04T17:00:00Z'), /AM|PM/);
+assert.match(forecastCard._formatDate('2026-09-04T22:00:00Z'), /00:00/);
+forecastCard.hass.locale.time_format = '12';
+assert.match(forecastCard._formatDate('2026-09-04T17:00:00Z'), /7:00 PM/);
+assert.match(forecastCard._formatDate('2026-09-04T22:00:00Z'), /12:00 AM/);
+forecastCard.hass.language = 'sv';
+forecastCard.hass.locale.language = 'sv';
+assert.match(forecastCard._formatDate('2026-09-04T17:00:00Z'), /7:00/);
+forecastCard.hass.locale.time_format = 'language';
+assert.match(forecastCard._formatDate('2026-09-04T17:00:00Z'), /19:00/);
+forecastCard.hass.locale.language = 'en-US';
+assert.match(forecastCard._formatDate('2026-09-04T17:00:00Z'), /7:00 PM/);
+""")
+
+
+@pytest.mark.parametrize("card_type", ["smhi-fire-risk-card", "smhi-thunder-card"])
+def test_profile_clock_changes_trigger_rendering_without_new_sensor_data(
+    card_type: str,
+) -> None:
+    run_card(f"""
+const forecastCard = new (elements.get({json.dumps(card_type)}))();
+forecastCard.setConfig({{ entity: 'sensor.thunder' }});
+forecastCard.hass = {{ ...card.hass, locale: {{ language: 'en', time_format: '12', time_zone: 'server' }} }};
+const changed = new Map([['hass', {{}}]]);
+assert.equal(forecastCard.shouldUpdate(changed), true);
+assert.equal(forecastCard.shouldUpdate(changed), false);
+forecastCard.hass = {{ ...forecastCard.hass, locale: {{ ...forecastCard.hass.locale, time_format: '24' }} }};
+assert.equal(forecastCard.shouldUpdate(changed), true);
+assert.equal(forecastCard.shouldUpdate(changed), false);
+forecastCard.hass.locale.language = 'sv';
+assert.equal(forecastCard.shouldUpdate(changed), true);
+forecastCard.hass.locale.time_zone = 'local';
+assert.equal(forecastCard.shouldUpdate(changed), true);
+""")
+
+
+def test_system_clock_format_uses_browser_locale_instead_of_ha_language() -> None:
+    run_card("""
+card.hass = { ...card.hass, language: 'sv', locale: { language: 'sv', time_format: 'system' },
+  config: { time_zone: 'Europe/Stockholm' } };
+const nativeDateTimeFormat = Intl.DateTimeFormat;
+const locales = [];
+Intl.DateTimeFormat = function(locale, options) {
+  locales.push(locale);
+  // Model an English browser while HA uses Swedish.
+  return new nativeDateTimeFormat(locale === undefined ? 'en-US' : locale, options);
+};
+const formatted = card._formatDate('2026-09-04T17:00:00Z');
+assert.ok(locales.includes(undefined));
+assert.match(formatted, /7:00/);
+assert.doesNotMatch(formatted, /19:00/);
+Intl.DateTimeFormat = nativeDateTimeFormat;
 """)

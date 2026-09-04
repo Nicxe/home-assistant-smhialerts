@@ -26,10 +26,10 @@ globalThis.window = {
   location: { href: 'https://ha.test/', origin: 'https://ha.test' },
 };
 await import(pathToFileURL(process.argv[2]));
-const Card = elements.get('smhi-alert-card');
-const Editor = elements.get('smhi-alert-card-editor');
+const Card = elements.get('smhi-fire-risk-card');
+const Editor = elements.get('smhi-fire-risk-card-editor');
 const card = new Card();
-card.setConfig({ entity: 'sensor.alerts', fire_risk_entity: 'sensor.fire_risk' });
+card.setConfig({ entity: 'sensor.fire_risk' });
 card._fireRiskToday = () => '2026-09-04';
 const day = (date, overrides = {}) => ({
   date, valid_time: `${date}T12:00:00Z`, forest_fire_risk: 'low', forest_fire_risk_code: 2,
@@ -63,22 +63,17 @@ def run_card(script: str) -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_optional_section_keeps_official_alerts_unchanged() -> None:
+def test_fire_card_works_without_any_warning_sensor() -> None:
     run_card("""
-const before = JSON.stringify(card._visibleMessages());
-let rendered = output(card.render());
-assert.ok(rendered.includes('Inga varningar'));
-assert.ok(rendered.indexOf('Inga varningar') < rendered.indexOf('Lokal brandrisk'));
+delete card.hass.states['sensor.alerts'];
+const rendered = output(card.render());
+assert.ok(rendered.includes('<ha-card>'));
+assert.ok(rendered.includes('Lokal brandrisk'));
 assert.ok(rendered.includes('Säsongen är slut'));
 assert.ok(rendered.includes('Kommande dagar (1)'));
-assert.equal(JSON.stringify(card._visibleMessages()), before);
-assert.equal(card.hass.states['sensor.alerts'].attributes.highest_severity, 'NONE');
-card.setConfig({ entity: 'sensor.alerts', show_header: false, show_empty_message: false });
-assert.equal(card.getCardSize(), 0);
-assert.ok(!output(card.render()).includes('Lokal brandrisk'));
-card.setConfig({ entity: 'sensor.alerts', fire_risk_entity: 'sensor.fire_risk', show_header: false, show_empty_message: false });
-assert.equal(card.getCardSize(), 3);
-assert.ok(output(card.render()).includes('Lokal brandrisk'));
+assert.ok(!rendered.includes('Inga varningar'));
+assert.ok(card.getCardSize() > 0);
+assert.equal(card.getGridOptions().rows, undefined);
 """)
 
 
@@ -100,7 +95,7 @@ card.hass.states['sensor.fire_risk'].attributes.source_kind = 'official_warning'
 assert.equal(card._fireRiskData(), null);
 delete card.hass.states['sensor.fire_risk'];
 assert.equal(card._fireRiskData(), null);
-assert.throws(() => card.setConfig({ entity: 'sensor.alerts', fire_risk_entity: 'binary_sensor.fire' }));
+assert.throws(() => card.setConfig({ entity: 'binary_sensor.fire' }));
 """)
 
 
@@ -168,18 +163,18 @@ assert.equal(card.shouldUpdate(changed), true);
 """)
 
 
-def test_editor_exposes_optional_sensor_and_keeps_existing_values() -> None:
+def test_editor_exposes_fire_sensor_and_preserves_other_options() -> None:
     run_card("""
 const editor = new Editor();
 editor.hass = card.hass;
-editor.setConfig({ entity: 'sensor.alerts', fire_risk_entity: 'sensor.fire_risk' });
+editor.setConfig({ entity: 'sensor.fire_risk' });
 const rendered = JSON.stringify(editor.render());
-assert.ok(rendered.includes('Brandrisksensor (valfri)'));
+assert.equal(editor._computeLabel({ name: 'show_forecast' }), 'Visa prognos');
 assert.ok(rendered.includes('"device_class":"enum"'));
 let event;
 globalThis.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
 editor.dispatchEvent = (value) => { event = value; };
-editor._valueChanged({ detail: { value: { fire_risk_entity: '' } } });
-assert.equal(event.detail.config.entity, 'sensor.alerts');
-assert.equal(event.detail.config.fire_risk_entity, '');
+editor._valueChanged({ detail: { value: { title: 'Min brandrisk' } } });
+assert.equal(event.detail.config.entity, 'sensor.fire_risk');
+assert.equal(event.detail.config.title, 'Min brandrisk');
 """)
