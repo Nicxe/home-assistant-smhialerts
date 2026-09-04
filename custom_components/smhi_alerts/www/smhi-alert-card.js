@@ -29,6 +29,12 @@ const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright
 const MAP_TILE_REFERRER_POLICY = 'strict-origin-when-cross-origin';
 const DEFAULT_MAP_TILE_MAX_ZOOM = 18;
 const MAX_MAP_TILE_MAX_ZOOM = 22;
+const FIRE_RISK_VALUES = {
+  forest_fire_risk: ['very_low', 'low', 'moderate', 'high', 'very_high', 'extreme'],
+  grass_fire_risk: ['snow_covered', 'season_over', 'low', 'moderate', 'high', 'very_high'],
+  forest_dryness: ['very_wet', 'wet', 'moderately_wet', 'dry', 'very_dry', 'extremely_dry'],
+};
+const THUNDER_SOURCE_KIND = 'local_thunder_probability_forecast';
 
 const normalizeMapTileConfig = (config) => {
   const tileUrl = String(config.map_tile_url || '').trim();
@@ -1305,7 +1311,7 @@ class SmhiAlertCard extends LitElement {
       const messages = stateObj?.attributes?.messages || [];
       // Include details/descr to re-render when description text changes
       const msgKey = JSON.stringify(messages?.map((m) => [m.code, m.area, m.start, m.published, m.details, m.descr]));
-      const combinedKey = `${lastUpdate}|${msgKey}`;
+      const combinedKey = `${lastUpdate}|${msgKey}|${this.hass.language}`;
       if (this._lastKey !== combinedKey) {
         this._lastKey = combinedKey;
         return true;
@@ -1316,7 +1322,7 @@ class SmhiAlertCard extends LitElement {
   }
 
   _t(key) {
-    const lang = (this.hass?.language || 'en').toLowerCase();
+    const lang = (this.hass?.language || 'en').toLowerCase().split('-')[0];
     const dict = {
       en: {
         no_alerts: 'No alerts',
@@ -1795,6 +1801,447 @@ if (!customElements.get('smhi-alert-card-editor')) {
   customElements.define('smhi-alert-card-editor', SmhiAlertCardEditor);
 }
 
+
+// Three card types share this resource; forecast cards do not depend on a warning entity.
+const FORECAST_TEXT = {
+  en: {
+        thunder_title: 'Thunderstorm probability',
+        thunder_caption: 'Local SMHI forecast for each stated time.',
+        thunder_next_time: 'Next forecast time',
+        thunder_forecast: 'Forecast times · Next 48 hours',
+        thunder_time: 'Forecast time',
+        thunder_probability: 'Probability',
+        thunder_created: 'Created',
+        thunder_unknown: 'No data',
+        thunder_unavailable: 'Thunderstorm probability is unavailable',
+        fire_title: 'Local fire risk',
+        fire_caption: 'Forecast for the selected point · Today. Fire restrictions are issued separately.',
+        fire_forest_fire_risk: 'Forest',
+        fire_grass_fire_risk: 'Grass',
+        fire_forest_dryness: 'Fuel dryness',
+        fire_forecast: 'Coming days',
+        fire_day: 'Day',
+        fire_updated: 'Updated',
+        fire_unavailable: 'Today’s fire risk is unavailable',
+        fire_unknown: 'No data',
+        fire_forest_fire_risk_very_low: 'Very low',
+        fire_forest_fire_risk_low: 'Low',
+        fire_forest_fire_risk_moderate: 'Moderate',
+        fire_forest_fire_risk_high: 'High',
+        fire_forest_fire_risk_very_high: 'Very high',
+        fire_forest_fire_risk_extreme: 'Extreme',
+        fire_grass_fire_risk_snow_covered: 'Snow covered',
+        fire_grass_fire_risk_season_over: 'Season over',
+        fire_grass_fire_risk_low: 'Low',
+        fire_grass_fire_risk_moderate: 'Moderate',
+        fire_grass_fire_risk_high: 'High',
+        fire_grass_fire_risk_very_high: 'Very high',
+        fire_forest_dryness_very_wet: 'Very wet',
+        fire_forest_dryness_wet: 'Wet',
+        fire_forest_dryness_moderately_wet: 'Moderately wet',
+        fire_forest_dryness_dry: 'Dry',
+        fire_forest_dryness_very_dry: 'Very dry',
+        fire_forest_dryness_extremely_dry: 'Extremely dry',
+
+    entity: 'Sensor', title: 'Title', show_forecast: 'Show forecast',
+    forecast_expanded: 'Expand forecast by default',
+    fire_setup: 'Enable local fire risk forecasts in SMHI Alerts, then select a fire risk sensor.',
+    thunder_setup: 'Enable local thunderstorm probability in SMHI Alerts, then select its sensor.',
+  },
+  sv: {
+        thunder_title: 'Åsksannolikhet',
+        thunder_caption: 'Lokal SMHI-prognos för varje angiven tidpunkt.',
+        thunder_next_time: 'Nästa prognostid',
+        thunder_forecast: 'Prognostider · Nästa 48 timmar',
+        thunder_time: 'Prognostid',
+        thunder_probability: 'Sannolikhet',
+        thunder_created: 'Skapad',
+        thunder_unknown: 'Data saknas',
+        thunder_unavailable: 'Åsksannolikhet är inte tillgänglig',
+        fire_title: 'Lokal brandrisk',
+        fire_caption: 'Prognos för vald punkt · Idag. Eldningsförbud beslutas separat.',
+        fire_forest_fire_risk: 'Skog',
+        fire_grass_fire_risk: 'Gräs',
+        fire_forest_dryness: 'Bränsleuttorkning',
+        fire_forecast: 'Kommande dagar',
+        fire_day: 'Dag',
+        fire_updated: 'Uppdaterad',
+        fire_unavailable: 'Dagens brandrisk är inte tillgänglig',
+        fire_unknown: 'Data saknas',
+        fire_forest_fire_risk_very_low: 'Mycket liten',
+        fire_forest_fire_risk_low: 'Liten',
+        fire_forest_fire_risk_moderate: 'Måttlig',
+        fire_forest_fire_risk_high: 'Stor',
+        fire_forest_fire_risk_very_high: 'Mycket stor',
+        fire_forest_fire_risk_extreme: 'Extremt stor',
+        fire_grass_fire_risk_snow_covered: 'Snötäckt mark',
+        fire_grass_fire_risk_season_over: 'Säsongen är slut',
+        fire_grass_fire_risk_low: 'Liten',
+        fire_grass_fire_risk_moderate: 'Måttlig',
+        fire_grass_fire_risk_high: 'Stor',
+        fire_grass_fire_risk_very_high: 'Mycket stor',
+        fire_forest_dryness_very_wet: 'Mycket blött',
+        fire_forest_dryness_wet: 'Blött',
+        fire_forest_dryness_moderately_wet: 'Måttligt blött',
+        fire_forest_dryness_dry: 'Torrt',
+        fire_forest_dryness_very_dry: 'Mycket torrt',
+        fire_forest_dryness_extremely_dry: 'Extremt torrt',
+
+    entity: 'Sensor', title: 'Rubrik', show_forecast: 'Visa prognos',
+    forecast_expanded: 'Visa prognosen utfälld från början',
+    fire_setup: 'Aktivera lokal brandrisk i SMHI Alerts och välj sedan en brandrisksensor.',
+    thunder_setup: 'Aktivera lokal åsksannolikhet i SMHI Alerts och välj sedan dess sensor.',
+  },
+};
+const forecastText = (hass, key) => {
+  const language = (hass?.language || 'en').toLowerCase().split('-')[0];
+  return (FORECAST_TEXT[language] || FORECAST_TEXT.en)[key] || key;
+};
+const forecastEntities = (hass, kind) => Object.entries(hass?.states || {})
+  .filter(([id, state]) => id.startsWith('sensor.') && (kind === 'thunder'
+    ? state.attributes?.source_kind === THUNDER_SOURCE_KIND
+    : state.attributes?.source_kind === 'local_fire_risk_forecast'
+      || (state.state === 'unavailable' && state.attributes?.device_class === 'enum'
+        && Object.values(FIRE_RISK_VALUES).some((options) => JSON.stringify(options) === JSON.stringify(state.attributes.options)))))
+  .map(([id]) => id);
+
+class SmhiForecastCard extends LitElement {
+  static properties = { hass: {}, config: {} };
+  static styles = css`
+    :host { display: block; }
+    ha-card { padding: 20px; color: var(--primary-text-color); }
+    .setup { margin: 0; line-height: 1.5; color: var(--secondary-text-color); }
+    .fire-risk-heading { display: flex; align-items: center; gap: 8px; }
+    .fire-risk-heading ha-icon { --mdc-icon-size: 22px; color: var(--secondary-text-color); }
+    .fire-risk h3 { margin: 0; font-size: 1.15em; font-weight: 500; }
+    .fire-risk-caption, .fire-risk-updated { color: var(--secondary-text-color); font-size: 0.8em; line-height: 1.5; }
+    .fire-risk-caption { margin: 5px 0 12px; }
+    .fire-risk-current { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+    .fire-risk-current dt { color: var(--secondary-text-color); font-size: 0.8em; line-height: 1.4; }
+    .fire-risk-current dd { margin: 4px 0 0; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+    .fire-risk-unknown { color: var(--secondary-text-color); }
+    .fire-risk-unavailable { margin: 0; color: var(--secondary-text-color); }
+    .fire-risk-forecast { margin-top: 14px; border-top: 1px solid var(--divider-color); }
+    .fire-risk-forecast summary { padding: 12px 0 4px; cursor: pointer; font-size: 0.9em; }
+    .fire-risk-forecast summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+    .fire-risk-forecast table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 6px; font-size: 0.8em; }
+    .fire-risk-forecast th, .fire-risk-forecast td { padding: 9px 4px; text-align: start; vertical-align: top; line-height: 1.4; overflow-wrap: anywhere; }
+    .fire-risk-forecast thead th { color: var(--secondary-text-color); font-weight: 400; }
+    .fire-risk-forecast tbody th { font-weight: 500; }
+    .fire-risk-forecast tbody tr + tr { border-top: 1px solid var(--divider-color); }
+    .fire-risk-forecast th:first-child { width: 20%; padding-inline-start: 0; }
+    .fire-risk-updated { margin-top: 12px; }
+    .thunder-heading { display: flex; align-items: center; gap: 8px; }
+    .thunder-heading ha-icon { --mdc-icon-size: 22px; color: var(--secondary-text-color); }
+    .thunder-heading h3 { margin: 0; font-size: 1.15em; font-weight: 500; }
+    .thunder-caption, .thunder-updated { color: var(--secondary-text-color); font-size: 0.8em; line-height: 1.5; }
+    .thunder-caption { margin: 5px 0 12px; }
+    .thunder-current { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .thunder-value { font-size: 1.75em; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .thunder-time { display: flex; flex-direction: column; gap: 2px; font-size: 0.85em; }
+    .thunder-time-label, .thunder-unknown, .thunder-unavailable { color: var(--secondary-text-color); }
+    .thunder-forecast { margin-top: 14px; border-top: 1px solid var(--divider-color); }
+    .thunder-forecast summary { padding: 12px 0 4px; cursor: pointer; font-size: 0.9em; }
+    .thunder-forecast summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+    .thunder-forecast table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 6px; font-size: 0.85em; }
+    .thunder-forecast th, .thunder-forecast td { padding: 9px 4px; text-align: start; vertical-align: top; line-height: 1.4; overflow-wrap: anywhere; }
+    .thunder-forecast th:first-child { width: 64%; padding-inline-start: 0; }
+    .thunder-forecast thead th { color: var(--secondary-text-color); font-weight: 400; }
+    .thunder-forecast tbody th { font-weight: 500; }
+    .thunder-forecast tbody tr + tr { border-top: 1px solid var(--divider-color); }
+    .thunder-forecast td { font-variant-numeric: tabular-nums; }
+    .thunder-updated { margin-top: 12px; }
+
+    .thunder-forecast .forecast-scroll { max-height: 360px; overflow: auto; }
+    .thunder-forecast thead { position: sticky; top: 0; background: var(--ha-card-background, var(--card-background-color)); }
+    .thunder-value { font-size: 2.5em; font-weight: 500; }
+    @media (max-width: 400px) {
+      ha-card { padding: 16px; }
+      .fire-risk-current { gap: 8px; }
+      .fire-risk-current dd { font-size: 0.95em; }
+    }
+  `;
+
+  setConfig(config) {
+    const entity = typeof config.entity === 'string' ? config.entity.trim() : '';
+    if (entity && !/^sensor\.[a-z0-9_]+$/.test(entity)) throw new Error('Select a sensor entity.');
+    this.config = { ...config, entity, show_forecast: config.show_forecast !== false,
+      forecast_expanded: config.forecast_expanded === true };
+    this._forecastOpen = this.config.forecast_expanded;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    // Expire displayed forecast times even when no HA entity has changed.
+    this._clockTimer = setInterval(() => this.requestUpdate(), 60000);
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._clockTimer);
+    super.disconnectedCallback();
+  }
+
+  _forecastToggled = (event) => { this._forecastOpen = event.target.open; };
+
+  getCardSize() { return 5; }
+  getGridOptions() { return { columns: 12, min_columns: 6, max_columns: 12, min_rows: 3 }; }
+
+  shouldUpdate(changed) {
+    if (changed.has('config')) return true;
+    if (changed.has('hass')) {
+      const state = this.hass?.states?.[this.config?.entity];
+      const time = this.constructor.kind === 'fire' ? this._fireRiskToday() : Math.floor(this._thunderNow() / 60000);
+      const key = JSON.stringify([state?.state, state?.attributes, this.hass?.language,
+        this.hass?.locale?.language, this.hass?.locale?.time_format, this.hass?.locale?.time_zone,
+        this.hass?.config?.time_zone, time]);
+      if (this._lastKey === key) return false;
+      this._lastKey = key;
+    }
+    return true;
+  }
+
+  _t(key) { return forecastText(this.hass, key); }
+  _parseDate(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  _formatDate(value) {
+    const date = this._parseDate(value);
+    if (!date) return '';
+    const locale = this.hass?.locale;
+    const language = locale?.language || this.hass?.language || 'en';
+    const timeFormat = locale?.time_format;
+    // HA profile values are '12', '24', 'language' or 'system' (browser default).
+    const useAmPm = timeFormat === '12' || (timeFormat !== '24'
+      && new Intl.DateTimeFormat(timeFormat === 'system' ? undefined : language, {
+        hour: 'numeric',
+      }).resolvedOptions().hour12);
+    return new Intl.DateTimeFormat(language, {
+      day: 'numeric', month: 'short', hour: useAmPm ? 'numeric' : '2-digit', minute: '2-digit',
+      // h23 keeps midnight at 00:00 even when the display language is English.
+      hourCycle: useAmPm ? 'h12' : 'h23',
+      timeZone: locale?.time_zone === 'local' ? undefined : this.hass?.config?.time_zone,
+    }).format(date);
+  }
+
+  render() {
+    if (!this.hass || !this.config) return html``;
+    return html`<ha-card>${!this.config.entity
+      ? html`<p class="setup">${this._t(`${this.constructor.kind}_setup`)}</p>`
+      : this.constructor.kind === 'fire' ? this._renderFireRisk() : this._renderThunderProbability()}</ha-card>`;
+  }
+
+  static getConfigElement() { return document.createElement(`smhi-${this.kind === 'fire' ? 'fire-risk' : 'thunder'}-card-editor`); }
+  static getStubConfig(hass) { return { entity: forecastEntities(hass, this.kind)[0] || '' }; }
+}
+
+class SmhiFireRiskCard extends SmhiForecastCard {
+  static kind = 'fire';
+  _fireRiskToday() {
+    return new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Stockholm', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
+  }
+
+  _fireRiskDay(row) {
+    if (!row || typeof row !== 'object' || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) return null;
+    const date = new Date(`${row.date}T12:00:00Z`);
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== row.date) return null;
+    const result = { date: row.date };
+    for (const [key, values] of Object.entries(FIRE_RISK_VALUES)) {
+      result[key] = values.includes(row[key]) ? row[key] : null;
+    }
+    return result;
+  }
+
+  _fireRiskData() {
+    const state = this.hass?.states?.[this.config?.entity];
+    const attrs = state?.attributes;
+    if (!state || (state.state !== 'unknown' && !Object.values(FIRE_RISK_VALUES).some((values) => values.includes(state.state)))
+      || attrs?.source_kind !== 'local_fire_risk_forecast') return null;
+    const today = this._fireRiskToday();
+    const current = this._fireRiskDay(attrs.current);
+    const seen = new Set();
+    const forecast = (Array.isArray(attrs.forecast) ? attrs.forecast : [])
+      .map((row) => this._fireRiskDay(row))
+      .filter((row) => row && row.date > today)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .filter((row) => !seen.has(row.date) && seen.add(row.date))
+      .slice(0, 6);
+    return { current: current?.date === today ? current : null, forecast, approved: attrs.approved_time };
+  }
+
+  _fireRiskLabel(key, value) {
+    if (!FIRE_RISK_VALUES[key]?.includes(value)) return this._t('fire_unknown');
+    const label = this._t(`fire_${key}_${value}`);
+    return value === 'extreme' || value === 'extremely_dry' ? `5E · ${label}` : label;
+  }
+
+  _fireRiskDate(value) {
+    return new Intl.DateTimeFormat(this.hass?.language || 'en', {
+      weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC',
+    }).format(new Date(`${value}T12:00:00Z`));
+  }
+
+  _renderFireRisk() {
+    const data = this._fireRiskData();
+    const keys = Object.keys(FIRE_RISK_VALUES);
+    const approved = data?.approved && this._parseDate(data.approved);
+    return html`
+      <section class="fire-risk" aria-label=${this.config.title || this._t('fire_title')}>
+        <div class="fire-risk-heading">
+          <ha-icon icon="mdi:pine-tree" aria-hidden="true"></ha-icon>
+          <h3>${this.config.title || this._t('fire_title')}</h3>
+        </div>
+        <p class="fire-risk-caption">${this._t('fire_caption')}</p>
+        ${data?.current ? html`
+          <dl class="fire-risk-current">
+            ${keys.map((key) => html`<div>
+              <dt>${this._t(`fire_${key}`)}</dt>
+              <dd class=${data.current[key] ? '' : 'fire-risk-unknown'}>${this._fireRiskLabel(key, data.current[key])}</dd>
+            </div>`)}
+          </dl>` : html`<p class="fire-risk-unavailable">${this._t('fire_unavailable')}</p>`}
+        ${this.config.show_forecast && data?.forecast.length ? html`
+          <details class="fire-risk-forecast" .open=${this._forecastOpen} @toggle=${this._forecastToggled}>
+            <summary>${this._t('fire_forecast')} (${data.forecast.length})</summary>
+            <table>
+              <thead><tr><th scope="col">${this._t('fire_day')}</th>${keys.map((key) => html`<th scope="col">${this._t(`fire_${key}`)}</th>`)}</tr></thead>
+              <tbody>${data.forecast.map((row) => html`
+                <tr><th scope="row">${this._fireRiskDate(row.date)}</th>${keys.map((key) => html`
+                  <td class=${row[key] ? '' : 'fire-risk-unknown'}>${this._fireRiskLabel(key, row[key])}</td>`)}</tr>
+              `)}</tbody>
+            </table>
+          </details>` : html``}
+        ${approved ? html`<div class="fire-risk-updated">SMHI · ${this._t('fire_updated')} ${this._formatDate(approved)}</div>` : html``}
+      </section>
+    `;
+  }
+
+
+}
+
+class SmhiThunderCard extends SmhiForecastCard {
+  static kind = 'thunder';
+  _thunderNow() {
+    return Date.now();
+  }
+
+  _thunderPercent(value) {
+    if ((typeof value !== 'number' && typeof value !== 'string')
+      || (typeof value === 'string' && !value.trim())) return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 && number <= 100 ? number : null;
+  }
+
+  _thunderPoint(row, now) {
+    if (!row || typeof row !== 'object' || typeof row.valid_time !== 'string') return null;
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(row.valid_time)) return null;
+    const date = this._parseDate(row.valid_time);
+    if (!date || date.getTime() <= now || date.getTime() > now + 48 * 60 * 60 * 1000) return null;
+    return { valid_time: date.toISOString(), probability: this._thunderPercent(row.probability) };
+  }
+
+  _thunderData() {
+    const state = this.hass?.states?.[this.config?.entity];
+    const attrs = state?.attributes;
+    if (!state || attrs?.source_kind !== THUNDER_SOURCE_KIND
+      || attrs.probability_unit !== '%'
+      || (state.state !== 'unknown' && this._thunderPercent(state.state) === null)) return null;
+    const now = this._thunderNow();
+    const current = this._thunderPoint(attrs.current, now);
+    // Unknown at the nearest forecast time must not be replaced with a later value.
+    if (current && state.state === 'unknown') current.probability = null;
+    const seen = new Set();
+    const forecast = (Array.isArray(attrs.forecast) ? attrs.forecast : [])
+      .map((row) => this._thunderPoint(row, now))
+      .filter((row) => row)
+      .sort((a, b) => a.valid_time.localeCompare(b.valid_time))
+      .filter((row) => !seen.has(row.valid_time) && seen.add(row.valid_time));
+    return { current, forecast, created: attrs.created_time };
+  }
+
+  _thunderLabel(value) {
+    if (value === null) return this._t('thunder_unknown');
+    // Preserve the source's percentage, including a real zero, without risk bands.
+    return `${new Intl.NumberFormat(this.hass?.language || 'en', { maximumFractionDigits: 10 }).format(value)} %`;
+  }
+
+  _renderThunderProbability() {
+    const data = this._thunderData();
+    const created = data?.created && this._parseDate(data.created);
+    return html`
+      <section class="thunder-probability" aria-label=${this.config.title || this._t('thunder_title')}>
+        <div class="thunder-heading">
+          <ha-icon icon="mdi:weather-lightning" aria-hidden="true"></ha-icon>
+          <h3>${this.config.title || this._t('thunder_title')}</h3>
+        </div>
+        <p class="thunder-caption">${this._t('thunder_caption')}</p>
+        ${data?.current ? html`
+          <div class="thunder-current">
+            <div class=${data.current.probability === null ? 'thunder-value thunder-unknown' : 'thunder-value'}>${this._thunderLabel(data.current.probability)}</div>
+            <div class="thunder-time">
+              <span class="thunder-time-label">${this._t('thunder_next_time')}</span>
+              <time datetime=${data.current.valid_time}>${this._formatDate(data.current.valid_time)}</time>
+            </div>
+          </div>` : html`<p class="thunder-unavailable">${this._t('thunder_unavailable')}</p>`}
+        ${this.config.show_forecast && data?.forecast.length ? html`
+          <details class="thunder-forecast" .open=${this._forecastOpen} @toggle=${this._forecastToggled}>
+            <summary>${this._t('thunder_forecast')}</summary>
+            <div class="forecast-scroll"><table>
+              <thead><tr><th scope="col">${this._t('thunder_time')}</th><th scope="col">${this._t('thunder_probability')}</th></tr></thead>
+              <tbody>${data.forecast.map((row) => html`
+                <tr><th scope="row"><time datetime=${row.valid_time}>${this._formatDate(row.valid_time)}</time></th>
+                  <td class=${row.probability === null ? 'thunder-unknown' : ''}>${this._thunderLabel(row.probability)}</td></tr>
+              `)}</tbody>
+            </table></div>
+          </details>` : html``}
+        ${created ? html`<div class="thunder-updated">SMHI · ${this._t('thunder_created')} ${this._formatDate(created)}</div>` : html``}
+      </section>
+    `;
+  }
+
+
+}
+
+class SmhiForecastCardEditor extends LitElement {
+  static properties = { hass: {}, _config: {} };
+  setConfig(config) { this._config = { ...config }; }
+  render() {
+    if (!this.hass || !this._config) return html``;
+    const kind = this.constructor.kind;
+    const entity = kind === 'fire'
+      ? { filter: { domain: 'sensor', integration: 'smhi_alerts', device_class: 'enum' } }
+      : { filter: { domain: 'sensor', integration: 'smhi_alerts' }, include_entities: forecastEntities(this.hass, kind) };
+    const schema = [
+      { name: 'entity', required: true, selector: { entity } },
+      { name: 'title', selector: { text: {} } },
+      { name: 'show_forecast', selector: { boolean: {} } },
+      ...(this._config.show_forecast !== false ? [{ name: 'forecast_expanded', selector: { boolean: {} } }] : []),
+    ];
+    const data = { title: '', ...this._config, show_forecast: this._config.show_forecast !== false,
+      forecast_expanded: this._config.forecast_expanded === true };
+    return html`<ha-form .hass=${this.hass} .data=${data} .schema=${schema}
+      .computeLabel=${this._computeLabel} @value-changed=${this._valueChanged}></ha-form>`;
+  }
+  _computeLabel = (schema) => forecastText(this.hass, schema.name);
+  _valueChanged = (event) => {
+    if (!this._config || !event.detail?.value) return;
+    this._config = { ...this._config, ...event.detail.value };
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this._config }, bubbles: true, composed: true,
+    }));
+  };
+}
+class SmhiFireRiskCardEditor extends SmhiForecastCardEditor { static kind = 'fire'; }
+class SmhiThunderCardEditor extends SmhiForecastCardEditor { static kind = 'thunder'; }
+for (const [name, element] of [
+  ['smhi-fire-risk-card', SmhiFireRiskCard], ['smhi-fire-risk-card-editor', SmhiFireRiskCardEditor],
+  ['smhi-thunder-card', SmhiThunderCard], ['smhi-thunder-card-editor', SmhiThunderCardEditor],
+]) {
+  if (!customElements.get(name)) customElements.define(name, element);
+}
+
 // Register the card so it appears in the "Add card" dialog
 window.customCards = window.customCards || [];
 window.customCards.push({
@@ -1803,6 +2250,13 @@ window.customCards.push({
   description: 'Displays SMHI warnings for selected regions using the SMHI Weather Warnings & Alerts integration',
   preview: true,
 });
+window.customCards.push(
+  { type: 'smhi-fire-risk-card', name: 'SMHI Fire Risk Card', preview: true,
+    description: 'Local forest and grass fire risk, fuel drying and daily forecasts. Works independently of the alert card.' },
+  { type: 'smhi-thunder-card', name: 'SMHI Thunder Card', preview: true,
+    description: 'Local thunderstorm probability with exact forecast times for the next 48 hours. Works independently of the alert card.' },
+);
+
 
 // Actions support
 SmhiAlertCard.prototype._onRowAction = function (e, item) {

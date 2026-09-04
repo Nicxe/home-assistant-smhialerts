@@ -1,3 +1,6 @@
+from collections.abc import Mapping
+import math
+
 from aiohttp import ClientTimeout
 from homeassistant import config_entries
 from homeassistant.core import callback
@@ -11,6 +14,8 @@ from .const import (
     CONF_DISTRICT,
     CONF_EXCLUDE_SEA,
     CONF_EXCLUDED_MESSAGE_TYPES,
+    CONF_FIRE_RISK_ENABLED,
+    CONF_FIRE_RISK_LOCATION,
     CONF_INCLUDE_GEOMETRY,
     CONF_INCLUDE_MESSAGES,
     CONF_LANGUAGE,
@@ -20,14 +25,18 @@ from .const import (
     CONF_MESSAGE_TYPES,
     CONF_MODE,
     CONF_RADIUS_KM,
+    CONF_THUNDER_PROBABILITY_ENABLED,
+    CONF_THUNDER_PROBABILITY_LOCATION,
     DEFAULT_EXCLUDE_SEA,
     DEFAULT_EXCLUDED_MESSAGE_TYPES,
+    DEFAULT_FIRE_RISK_ENABLED,
     DEFAULT_INCLUDE_GEOMETRY,
     DEFAULT_INCLUDE_MESSAGES,
     DEFAULT_LANGUAGE,
     DEFAULT_MESSAGE_TYPES,
     DEFAULT_MODE,
     DEFAULT_RADIUS_KM,
+    DEFAULT_THUNDER_PROBABILITY_ENABLED,
     DISTRICTS,
     DOMAIN,
     LANGUAGE_OPTIONS,
@@ -73,6 +82,84 @@ def _location_from_input(user_input, default_latitude, default_longitude):
     return {"latitude": latitude, "longitude": longitude}
 
 
+_LOCAL_FORECAST_OPTIONS = (
+    (CONF_FIRE_RISK_ENABLED, CONF_FIRE_RISK_LOCATION, DEFAULT_FIRE_RISK_ENABLED),
+    (
+        CONF_THUNDER_PROBABILITY_ENABLED,
+        CONF_THUNDER_PROBABILITY_LOCATION,
+        DEFAULT_THUNDER_PROBABILITY_ENABLED,
+    ),
+)
+
+
+def _forecast_location(user_input, enabled_key, location_key):
+    """Validate a separately selected forecast point without guessing coverage."""
+    location = user_input.get(location_key)
+    if not location and not user_input.get(enabled_key, False):
+        return None
+    error = f"invalid_{location_key}"
+    if not isinstance(location, Mapping):
+        raise ValueError(error)
+    result = {}
+    for key, limit in (("latitude", 90), ("longitude", 180)):
+        value = location.get(key)
+        if isinstance(value, bool):
+            raise ValueError(error)
+        try:
+            coordinate = float(value)
+        except (TypeError, ValueError, OverflowError) as err:
+            raise ValueError(error) from err
+        if not math.isfinite(coordinate) or not -limit <= coordinate <= limit:
+            raise ValueError(error)
+        result[key] = coordinate
+    return result
+
+
+def _local_forecast_errors(user_input):
+    """Return separate field errors before persisting invalid forecast points."""
+    errors = {}
+    for enabled_key, location_key, _default in _LOCAL_FORECAST_OPTIONS:
+        try:
+            _forecast_location(user_input, enabled_key, location_key)
+        except ValueError:
+            errors[location_key] = f"invalid_{location_key}"
+    return errors
+
+
+def _local_forecast_schema(hass, entry=None):
+    """Show an independent point for each optional forecast source."""
+    current = {**entry.data, **entry.options} if entry else {}
+    schema = {}
+    for enabled_key, location_key, default in _LOCAL_FORECAST_OPTIONS:
+        schema[vol.Required(enabled_key, default=current.get(enabled_key, default))] = (
+            cv.boolean
+        )
+        schema[
+            vol.Optional(
+                location_key,
+                description={
+                    "suggested_value": current.get(
+                        location_key,
+                        {
+                            "latitude": hass.config.latitude,
+                            "longitude": hass.config.longitude,
+                        },
+                    )
+                },
+            )
+        ] = selector({"location": {}})
+    return schema
+
+
+def _preserve_local_forecast_options(user_input, entry):
+    """Keep each saved source's settings for older clients and when disabling it."""
+    current = {**entry.data, **entry.options}
+    for enabled_key, location_key, default in _LOCAL_FORECAST_OPTIONS:
+        user_input.setdefault(enabled_key, current.get(enabled_key, default))
+        if location_key not in user_input and location_key in current:
+            user_input[location_key] = current[location_key]
+
+
 def _build_entry_data(user_input, default_latitude, default_longitude):
     """Build persisted entry data without stale fields from another mode."""
     data = {
@@ -87,6 +174,12 @@ def _build_entry_data(user_input, default_latitude, default_longitude):
         CONF_MESSAGE_TYPES: user_input.get(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES),
         CONF_EXCLUDE_SEA: user_input.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA),
     }
+
+    for enabled_key, location_key, default in _LOCAL_FORECAST_OPTIONS:
+        data[enabled_key] = user_input.get(enabled_key, default)
+        location = _forecast_location(user_input, enabled_key, location_key)
+        if location is not None:
+            data[location_key] = location
 
     if user_input[CONF_MODE] == "district":
         data[CONF_DISTRICT] = user_input[CONF_DISTRICT]
@@ -208,6 +301,10 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             user_input = dict(user_input)
+            _preserve_local_forecast_options(user_input, entry)
+            errors = _local_forecast_errors(user_input)
+
+        if user_input is not None and not errors:
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
             new_data = _build_entry_data(
                 user_input, self.hass.config.latitude, self.hass.config.longitude
@@ -282,7 +379,11 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(
-            step_id="reconfigure", data_schema=data_schema, errors=errors
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema.extend(_local_forecast_schema(self.hass, entry)), user_input
+            ),
+            errors=errors,
         )
 
     async def async_step_user(self, user_input=None):
@@ -290,6 +391,9 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             user_input = dict(user_input)
+            errors = _local_forecast_errors(user_input)
+
+        if user_input is not None and not errors:
             mode = user_input[CONF_MODE]
             language = user_input[CONF_LANGUAGE]
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
@@ -380,7 +484,9 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=data_schema,
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema.extend(_local_forecast_schema(self.hass)), user_input
+            ),
             errors=errors,
         )
 
@@ -398,6 +504,10 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
         errors = {}
         if user_input is not None:
             user_input = dict(user_input)
+            _preserve_local_forecast_options(user_input, self.config_entry)
+            errors = _local_forecast_errors(user_input)
+
+        if user_input is not None and not errors:
             user_input.setdefault(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES)
             user_input.setdefault(CONF_INCLUDE_GEOMETRY, DEFAULT_INCLUDE_GEOMETRY)
             data = _build_entry_data(
@@ -519,6 +629,11 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=data_schema,
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema.extend(
+                    _local_forecast_schema(self.hass, self.config_entry)
+                ),
+                user_input,
+            ),
             errors=errors,
         )
