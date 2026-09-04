@@ -15,7 +15,9 @@
                     "include_geometry": "Include geometry (map polygons)",
                     "message_types": "Message categories",
                     "fire_risk_enabled": "Enable local fire risk forecasts",
-                    "fire_risk_location": "Fire risk location (map)"
+                    "fire_risk_location": "Fire risk location (map)",
+                    "thunder_probability_enabled": "Enable local thunderstorm probability",
+                    "thunder_probability_location": "Thunderstorm probability location (map)"
                 },
                 "data_description": {
                     "mode": "Choose to filter by administrative district or by a coordinate + radius.",
@@ -26,7 +28,9 @@
                     "include_geometry": "Attach GeoJSON geometry for each warning area to the sensor attributes so UI cards can draw the affected area. This can increase entity state size.",
                     "message_types": "Choose which message categories to include when Show messages is enabled.",
                     "fire_risk_enabled": "Create separate sensors for forest fire risk, grass fire risk and forest fuel drying, with daily forecasts. These forecasts do not affect issued warning counts and do not indicate whether a fire ban applies.",
-                    "fire_risk_location": "Choose or confirm the exact forecast point, also when warnings use a district. The initial suggestion is your Home Assistant home location. SMHI provides this product for land and inland waters in Sweden; other points can have no data. The warning radius does not apply."
+                    "fire_risk_location": "Choose or confirm the exact forecast point, also when warnings use a district. The initial suggestion is your Home Assistant home location. SMHI provides this product for land and inland waters in Sweden; other points can have no data. The warning radius does not apply.",
+                    "thunder_probability_enabled": "Show thunderstorm probability at the next forecast time and the forecast for the coming 48 hours. This is a local forecast, not an issued warning.",
+                    "thunder_probability_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and fire risk location; the warning radius does not apply. Points outside SMHI’s forecast area can have no data."
                 }
             },
             "reconfigure": {
@@ -43,7 +47,9 @@
                     "include_geometry": "Include geometry (map polygons)",
                     "message_types": "Message categories",
                     "fire_risk_enabled": "Enable local fire risk forecasts",
-                    "fire_risk_location": "Fire risk location (map)"
+                    "fire_risk_location": "Fire risk location (map)",
+                    "thunder_probability_enabled": "Enable local thunderstorm probability",
+                    "thunder_probability_location": "Thunderstorm probability location (map)"
                 },
                 "data_description": {
                     "mode": "Choose to filter by administrative district or by a coordinate + radius.",
@@ -54,7 +60,9 @@
                     "include_geometry": "Attach GeoJSON geometry for each warning area to the sensor attributes so UI cards can draw the affected area. This can increase entity state size.",
                     "message_types": "Choose which message categories to include when Show messages is enabled.",
                     "fire_risk_enabled": "Create separate sensors for forest fire risk, grass fire risk and forest fuel drying, with daily forecasts. These forecasts do not affect issued warning counts and do not indicate whether a fire ban applies.",
-                    "fire_risk_location": "Choose or confirm the exact forecast point, also when warnings use a district. The initial suggestion is your Home Assistant home location. SMHI provides this product for land and inland waters in Sweden; other points can have no data. The warning radius does not apply."
+                    "fire_risk_location": "Choose or confirm the exact forecast point, also when warnings use a district. The initial suggestion is your Home Assistant home location. SMHI provides this product for land and inland waters in Sweden; other points can have no data. The warning radius does not apply.",
+                    "thunder_probability_enabled": "Show thunderstorm probability at the next forecast time and the forecast for the coming 48 hours. This is a local forecast, not an issued warning.",
+                    "thunder_probability_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and fire risk location; the warning radius does not apply. Points outside SMHI’s forecast area can have no data."
                 }
             },
             "reload_notice": {
@@ -63,12 +71,13 @@
             }
         },
         "error": {
-            "invalid_fire_risk_location": "Choose a fire risk location with a valid latitude and longitude."
+            "invalid_fire_risk_location": "Choose a fire risk location with a valid latitude and longitude.",
+            "invalid_thunder_probability_location": "Choose a thunderstorm probability location with a valid latitude and longitude."
         },
         "abort": {
             "entry_not_found": "Configuration entry not found.",
             "reconfigured_successful": "The configuration has been updated.",
-            "already_configured": "This warning filter is already configured. Enable local fire risk in the existing entry’s options."
+            "already_configured": "This warning filter is already configured. Enable local forecasts in the existing entry’s options."
         }
     },
     "options": {
@@ -87,7 +96,9 @@
                     "include_geometry": "Include geometry (map polygons)",
                     "message_types": "Message categories",
                     "fire_risk_enabled": "Enable local fire risk forecasts",
-                    "fire_risk_location": "Fire risk location (map)"
+                    "fire_risk_location": "Fire risk location (map)",
+                    "thunder_probability_enabled": "Enable local thunderstorm probability",
+                    "thunder_probability_location": "Thunderstorm probability location (map)"
                 },
                 "data_description": {
                     "mode": "Choose to filter by administrative district or by a coordinate + radius.",
@@ -98,12 +109,15 @@
                     "include_geometry": "Attach GeoJSON geometry for each warning area to the sensor attributes so UI cards can draw the affected area. This can increase entity state size.",
                     "message_types": "Choose which message categories to include when Show messages is enabled.",
                     "fire_risk_enabled": "Create separate sensors for forest fire risk, grass fire risk and forest fuel drying, with daily forecasts. These forecasts do not affect issued warning counts and do not indicate whether a fire ban applies.",
-                    "fire_risk_location": "Choose or confirm the exact forecast point, also when warnings use a district. The initial suggestion is your Home Assistant home location. SMHI provides this product for land and inland waters in Sweden; other points can have no data. The warning radius does not apply."
+                    "fire_risk_location": "Choose or confirm the exact forecast point, also when warnings use a district. The initial suggestion is your Home Assistant home location. SMHI provides this product for land and inland waters in Sweden; other points can have no data. The warning radius does not apply.",
+                    "thunder_probability_enabled": "Show thunderstorm probability at the next forecast time and the forecast for the coming 48 hours. This is a local forecast, not an issued warning.",
+                    "thunder_probability_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and fire risk location; the warning radius does not apply. Points outside SMHI’s forecast area can have no data."
                 }
             }
         },
         "error": {
-            "invalid_fire_risk_location": "Choose a fire risk location with a valid latitude and longitude."
+            "invalid_fire_risk_location": "Choose a fire risk location with a valid latitude and longitude.",
+            "invalid_thunder_probability_location": "Choose a thunderstorm probability location with a valid latitude and longitude."
         }
     },
     "entity": {
@@ -140,6 +154,9 @@
                     "very_dry": "Very dry",
                     "extremely_dry": "Extremely dry (5E)"
                 }
+            },
+            "thunder_probability": {
+                "name": "Thunderstorm probability"
             }
         }
     }

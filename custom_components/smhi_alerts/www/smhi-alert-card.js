@@ -34,6 +34,7 @@ const FIRE_RISK_VALUES = {
   grass_fire_risk: ['snow_covered', 'season_over', 'low', 'moderate', 'high', 'very_high'],
   forest_dryness: ['very_wet', 'wet', 'moderately_wet', 'dry', 'very_dry', 'extremely_dry'],
 };
+const THUNDER_SOURCE_KIND = 'local_thunder_probability_forecast';
 
 const normalizeMapTileConfig = (config) => {
   const tileUrl = String(config.map_tile_url || '').trim();
@@ -138,6 +139,34 @@ class SmhiAlertCard extends LitElement {
     .fire-risk-forecast tbody tr + tr { border-top: 1px solid var(--divider-color); }
     .fire-risk-forecast th:first-child { width: 20%; padding-inline-start: 0; }
     .fire-risk-updated { margin-top: 12px; }
+    .thunder-probability {
+      margin: 8px var(--smhi-alert-outer-padding, 0px) 0;
+      padding: 14px 12px;
+      border: 1px solid var(--divider-color);
+      border-radius: var(--smhi-alert-border-radius, 8px);
+      background: var(--card-background-color);
+      color: var(--primary-text-color);
+    }
+    .thunder-heading { display: flex; align-items: center; gap: 8px; }
+    .thunder-heading ha-icon { --mdc-icon-size: 22px; color: var(--secondary-text-color); }
+    .thunder-heading h3 { margin: 0; font-size: 1em; font-weight: 600; }
+    .thunder-caption, .thunder-updated { color: var(--secondary-text-color); font-size: 0.8em; line-height: 1.5; }
+    .thunder-caption { margin: 5px 0 12px; }
+    .thunder-current { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .thunder-value { font-size: 1.75em; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .thunder-time { display: flex; flex-direction: column; gap: 2px; font-size: 0.85em; }
+    .thunder-time-label, .thunder-unknown, .thunder-unavailable { color: var(--secondary-text-color); }
+    .thunder-forecast { margin-top: 14px; border-top: 1px solid var(--divider-color); }
+    .thunder-forecast summary { padding: 12px 0 4px; cursor: pointer; font-size: 0.9em; }
+    .thunder-forecast summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+    .thunder-forecast table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 6px; font-size: 0.85em; }
+    .thunder-forecast th, .thunder-forecast td { padding: 9px 4px; text-align: start; vertical-align: top; line-height: 1.4; overflow-wrap: anywhere; }
+    .thunder-forecast th:first-child { width: 64%; padding-inline-start: 0; }
+    .thunder-forecast thead th { color: var(--secondary-text-color); font-weight: 400; }
+    .thunder-forecast tbody th { font-weight: 500; }
+    .thunder-forecast tbody tr + tr { border-top: 1px solid var(--divider-color); }
+    .thunder-forecast td { font-variant-numeric: tabular-nums; }
+    .thunder-updated { margin-top: 12px; }
     .area-group {
       display: flex;
       flex-direction: column;
@@ -453,7 +482,8 @@ class SmhiAlertCard extends LitElement {
 
     // When empty, only reserve a row for the empty message when it is enabled.
     return header + (count > 0 ? count : (this._showEmptyMessage() ? 1 : 0))
-      + (this.config?.fire_risk_entity ? 3 : 0);
+      + (this.config?.fire_risk_entity ? 3 : 0)
+      + (this.config?.thunder_probability_entity ? 3 : 0);
   }
 
   /**
@@ -580,6 +610,7 @@ class SmhiAlertCard extends LitElement {
             : html``)
           : html`<div class="alerts">${this._renderGrouped(messages)}</div>`}
         ${this._renderFireRisk()}
+        ${this._renderThunderProbability()}
         ${this._renderEditorMetaControls?.() || html``}
       </ha-card>
     `;
@@ -662,6 +693,85 @@ class SmhiAlertCard extends LitElement {
             </table>
           </details>` : html``}
         ${approved ? html`<div class="fire-risk-updated">SMHI · ${this._t('fire_updated')} ${this._formatDate(approved)}</div>` : html``}
+      </section>
+    `;
+  }
+
+  _thunderNow() {
+    return Date.now();
+  }
+
+  _thunderPercent(value) {
+    if ((typeof value !== 'number' && typeof value !== 'string')
+      || (typeof value === 'string' && !value.trim())) return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 && number <= 100 ? number : null;
+  }
+
+  _thunderPoint(row, now) {
+    if (!row || typeof row !== 'object' || typeof row.valid_time !== 'string') return null;
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(row.valid_time)) return null;
+    const date = this._parseDate(row.valid_time);
+    if (!date || date.getTime() <= now || date.getTime() > now + 48 * 60 * 60 * 1000) return null;
+    return { valid_time: date.toISOString(), probability: this._thunderPercent(row.probability) };
+  }
+
+  _thunderData() {
+    const state = this.hass?.states?.[this.config?.thunder_probability_entity];
+    const attrs = state?.attributes;
+    if (!state || attrs?.source_kind !== THUNDER_SOURCE_KIND
+      || attrs.probability_unit !== '%'
+      || (state.state !== 'unknown' && this._thunderPercent(state.state) === null)) return null;
+    const now = this._thunderNow();
+    const current = this._thunderPoint(attrs.current, now);
+    // Unknown at the nearest forecast time must not be replaced with a later value.
+    if (current && state.state === 'unknown') current.probability = null;
+    const seen = new Set();
+    const forecast = (Array.isArray(attrs.forecast) ? attrs.forecast : [])
+      .map((row) => this._thunderPoint(row, now))
+      .filter((row) => row)
+      .sort((a, b) => a.valid_time.localeCompare(b.valid_time))
+      .filter((row) => !seen.has(row.valid_time) && seen.add(row.valid_time));
+    return { current, forecast, created: attrs.created_time };
+  }
+
+  _thunderLabel(value) {
+    if (value === null) return this._t('thunder_unknown');
+    // Preserve the source's percentage, including a real zero, without risk bands.
+    return `${new Intl.NumberFormat(this.hass?.language || 'en', { maximumFractionDigits: 10 }).format(value)} %`;
+  }
+
+  _renderThunderProbability() {
+    if (!this.config?.thunder_probability_entity) return html``;
+    const data = this._thunderData();
+    const created = data?.created && this._parseDate(data.created);
+    return html`
+      <section class="thunder-probability" aria-label=${this._t('thunder_title')}>
+        <div class="thunder-heading">
+          <ha-icon icon="mdi:weather-lightning" aria-hidden="true"></ha-icon>
+          <h3>${this._t('thunder_title')}</h3>
+        </div>
+        <p class="thunder-caption">${this._t('thunder_caption')}</p>
+        ${data?.current ? html`
+          <div class="thunder-current">
+            <div class=${data.current.probability === null ? 'thunder-value thunder-unknown' : 'thunder-value'}>${this._thunderLabel(data.current.probability)}</div>
+            <div class="thunder-time">
+              <span class="thunder-time-label">${this._t('thunder_next_time')}</span>
+              <time datetime=${data.current.valid_time}>${this._formatDate(data.current.valid_time)}</time>
+            </div>
+          </div>` : html`<p class="thunder-unavailable">${this._t('thunder_unavailable')}</p>`}
+        ${data?.forecast.length ? html`
+          <details class="thunder-forecast">
+            <summary>${this._t('thunder_forecast')}</summary>
+            <table>
+              <thead><tr><th scope="col">${this._t('thunder_time')}</th><th scope="col">${this._t('thunder_probability')}</th></tr></thead>
+              <tbody>${data.forecast.map((row) => html`
+                <tr><th scope="row"><time datetime=${row.valid_time}>${this._formatDate(row.valid_time)}</time></th>
+                  <td class=${row.probability === null ? 'thunder-unknown' : ''}>${this._thunderLabel(row.probability)}</td></tr>
+              `)}</tbody>
+            </table>
+          </details>` : html``}
+        ${created ? html`<div class="thunder-updated">SMHI · ${this._t('thunder_created')} ${this._formatDate(created)}</div>` : html``}
       </section>
     `;
   }
@@ -1426,7 +1536,13 @@ class SmhiAlertCard extends LitElement {
         fireState?.state, fireState?.attributes?.source_kind, fireState?.attributes?.current,
         fireState?.attributes?.forecast, fireState?.attributes?.approved_time, this._fireRiskToday(),
       ]) : '';
-      const combinedKey = `${lastUpdate}|${msgKey}|${fireKey}|${this.hass.language}`;
+      const thunderState = this.hass.states?.[this.config?.thunder_probability_entity];
+      const thunderKey = this.config?.thunder_probability_entity ? JSON.stringify([
+        thunderState?.state, thunderState?.attributes?.source_kind, thunderState?.attributes?.probability_unit,
+        thunderState?.attributes?.current, thunderState?.attributes?.forecast, thunderState?.attributes?.created_time,
+        Math.floor(this._thunderNow() / 60000),
+      ]) : '';
+      const combinedKey = `${lastUpdate}|${msgKey}|${fireKey}|${thunderKey}|${this.hass.language}`;
       if (this._lastKey !== combinedKey) {
         this._lastKey = combinedKey;
         return true;
@@ -1456,6 +1572,15 @@ class SmhiAlertCard extends LitElement {
         map_loading_leaflet: 'Loading map (Leaflet)…',
         map_rendering: 'Rendering area…',
         map_failed: 'Map failed to load (blocked by browser/HA CSP)',
+        thunder_title: 'Thunderstorm probability',
+        thunder_caption: 'Local SMHI forecast for each stated time.',
+        thunder_next_time: 'Next forecast time',
+        thunder_forecast: 'Forecast times · Next 48 hours',
+        thunder_time: 'Forecast time',
+        thunder_probability: 'Probability',
+        thunder_created: 'Created',
+        thunder_unknown: 'No data',
+        thunder_unavailable: 'Thunderstorm probability is unavailable',
         fire_title: 'Local fire risk',
         fire_caption: 'Forecast for the selected point · Today. Fire restrictions are issued separately.',
         fire_forest_fire_risk: 'Forest',
@@ -1502,6 +1627,15 @@ class SmhiAlertCard extends LitElement {
         map_loading_leaflet: 'Laddar karta (Leaflet)…',
         map_rendering: 'Ritar område…',
         map_failed: 'Kartan kunde inte laddas (blockerad av webbläsare/HA CSP)',
+        thunder_title: 'Åsksannolikhet',
+        thunder_caption: 'Lokal SMHI-prognos för varje angiven tidpunkt.',
+        thunder_next_time: 'Nästa prognostid',
+        thunder_forecast: 'Prognostider · Nästa 48 timmar',
+        thunder_time: 'Prognostid',
+        thunder_probability: 'Sannolikhet',
+        thunder_created: 'Skapad',
+        thunder_unknown: 'Data saknas',
+        thunder_unavailable: 'Åsksannolikhet är inte tillgänglig',
         fire_title: 'Lokal brandrisk',
         fire_caption: 'Prognos för vald punkt · Idag. Eldningsförbud beslutas separat.',
         fire_forest_fire_risk: 'Skog',
@@ -1540,6 +1674,10 @@ class SmhiAlertCard extends LitElement {
     normalized.fire_risk_entity = typeof config.fire_risk_entity === 'string' ? config.fire_risk_entity.trim() : '';
     if (normalized.fire_risk_entity && !/^sensor\.[a-z0-9_]+$/.test(normalized.fire_risk_entity)) {
       throw new Error('Fire risk entity must be a sensor entity ID.');
+    }
+    normalized.thunder_probability_entity = typeof config.thunder_probability_entity === 'string' ? config.thunder_probability_entity.trim() : '';
+    if (normalized.thunder_probability_entity && !/^sensor\.[a-z0-9_]+$/.test(normalized.thunder_probability_entity)) {
+      throw new Error('Thunderstorm probability entity must be a sensor entity ID.');
     }
     // Backwards compatibility mappings
     if (normalized.show_text === undefined && normalized.show_details !== undefined) {
@@ -1670,9 +1808,13 @@ class SmhiAlertCardEditor extends LitElement {
           { value: 'day_month_time_year', label: '14 January 2026 13:00' },
         ];
     const dateFormatLabel = lang.startsWith('sv') ? 'Datumformat' : 'Date format';
+    const thunderEntities = Object.entries(this.hass.states || {})
+      .filter(([entityId, state]) => entityId.startsWith('sensor.') && state.attributes?.source_kind === THUNDER_SOURCE_KIND)
+      .map(([entityId]) => entityId);
     const schema = [
       { name: 'entity', label: 'Entity', required: true, selector: { entity: { domain: 'sensor' } } },
       { name: 'fire_risk_entity', label: lang.startsWith('sv') ? 'Brandrisksensor (valfri)' : 'Fire risk sensor (optional)', selector: { entity: { filter: { domain: 'sensor', integration: 'smhi_alerts', device_class: 'enum' } } } },
+      { name: 'thunder_probability_entity', label: lang.startsWith('sv') ? 'Åsksannolikhetssensor (valfri)' : 'Thunderstorm probability sensor (optional)', selector: { entity: { filter: { domain: 'sensor', integration: 'smhi_alerts' }, include_entities: thunderEntities } } },
       { name: 'title', label: 'Title', selector: { text: {} } },
       { name: 'show_header', label: 'Show header', selector: { boolean: {} } },
       { name: 'show_empty_message', label: 'Show empty message', selector: { boolean: {} } },
@@ -1717,6 +1859,7 @@ class SmhiAlertCardEditor extends LitElement {
     const data = {
       entity: this._config.entity || '',
       fire_risk_entity: this._config.fire_risk_entity || '',
+      thunder_probability_entity: this._config.thunder_probability_entity || '',
       title: this._config.title || '',
       show_header: this._config.show_header !== undefined ? this._config.show_header : true,
       show_empty_message: this._config.show_empty_message !== undefined ? this._config.show_empty_message : true,

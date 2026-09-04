@@ -125,6 +125,49 @@ Source: [SMHI daily fire risk API](https://opendata.smhi.se/metfcst/fwif/introdu
 [parameter definitions](https://opendata.smhi.se/metfcst/fwif/parameters),
 [forecast publication times](https://opendata.smhi.se/metfcst/fwif/approved_time).
 
+### Optional local thunderstorm probability
+
+Open **Settings > Devices & Services > SMHI Alerts > Configure**. Enable
+**Enable local thunderstorm probability** and confirm its separate location on
+the map. The feature is off by default, needs no API key, and can be enabled
+independently of local fire risk. The selected point is independent of the
+district and radius used for official warnings.
+
+The **Thunderstorm probability** sensor reports SMHI's percentage at the **next
+forecast time**, identified by its `valid_time` attribute. This is a forecast
+valid at that time, not a measured lightning strike, a probability accumulated
+over the coming hour, or an issued thunderstorm warning. A value of `0` is a
+valid forecast; a missing probability remains `unknown`.
+
+In the alert card editor, choose **Thunderstorm probability sensor (optional)**.
+A separate section displays the percentage with its exact forecast time and an
+expandable list of forecast times for the next 48 hours. The original warning
+counts, severity, active binary sensor and fire risk section remain independent.
+
+```yaml
+type: custom:smhi-alert-card
+entity: sensor.your_smhi_alerts
+thunder_probability_entity: sensor.your_thunderstorm_probability
+```
+
+The integration uses SMHI's SNOW point forecast, checks `createdtime` every
+15 minutes, and reuses point data while the source creation time is unchanged.
+The next forecast time advances locally when a forecast timestamp is reached,
+without requiring another download. Source data two hours old or older is
+unavailable; API failures also affect only this source. Changing the location
+or disabling and re-enabling the option preserves the sensor's unique ID.
+
+Attributes include `created_time`, `reference_time`, `valid_time`, `current`,
+`forecast`, `probability_unit`, the returned grid point and `data_source_url`.
+Each forecast item contains `valid_time` and `probability`. Missing values are
+retained at their forecast time rather than replaced by another period. The
+large `current` and `forecast` attributes are excluded from recorder history.
+No observation state class or long-term measurement statistics are assigned to
+this predicted value.
+
+Source: [SMHI SNOW point forecasts](https://opendata.smhi.se/metfcst/snow1gv1/get_point_forecast),
+[parameter definitions](https://opendata.smhi.se/metfcst/snow1gv1/parameters).
+
 ### Development checks
 
 Use Python 3.14 and Node.js 22 or newer. In a virtual environment, install

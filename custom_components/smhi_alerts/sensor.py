@@ -51,6 +51,7 @@ from .const import (
     WARNINGS_URL,
 )
 from .fire_sensor import FIRE_RISK_SENSORS, SmhiFireRiskSensor
+from .thunder_sensor import SmhiThunderSensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -82,6 +83,8 @@ async def async_setup_entry(
             SmhiFireRiskSensor(fire_coordinator, entry, description)
             for description in FIRE_RISK_SENSORS
         )
+    if thunder_coordinator := entry.runtime_data.thunder:
+        entities.append(SmhiThunderSensor(thunder_coordinator, entry))
     async_add_entities(entities)
 
     _LOGGER.debug(
