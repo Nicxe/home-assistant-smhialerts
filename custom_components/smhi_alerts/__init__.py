@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from math import isfinite
 from time import monotonic
 
 from homeassistant.config_entries import ConfigEntry
@@ -11,6 +13,8 @@ from .const import (
     CONF_DISTRICT,
     CONF_EXCLUDE_SEA,
     CONF_EXCLUDED_MESSAGE_TYPES,
+    CONF_FIRE_RISK_ENABLED,
+    CONF_FIRE_RISK_LOCATION,
     CONF_INCLUDE_GEOMETRY,
     CONF_INCLUDE_MESSAGES,
     CONF_LANGUAGE,
@@ -19,24 +23,76 @@ from .const import (
     CONF_MESSAGE_TYPES,
     CONF_MODE,
     CONF_RADIUS_KM,
+    CONF_THUNDER_PROBABILITY_ENABLED,
+    CONF_THUNDER_PROBABILITY_LOCATION,
     DEFAULT_EXCLUDE_SEA,
     DEFAULT_EXCLUDED_MESSAGE_TYPES,
+    DEFAULT_FIRE_RISK_ENABLED,
     DEFAULT_INCLUDE_GEOMETRY,
     DEFAULT_INCLUDE_MESSAGES,
     DEFAULT_LANGUAGE,
     DEFAULT_MESSAGE_TYPES,
     DEFAULT_MODE,
     DEFAULT_RADIUS_KM,
+    DEFAULT_THUNDER_PROBABILITY_ENABLED,
     DOMAIN,
 )
+from .fire_risk import SmhiFireRiskCoordinator
 from .frontend import async_setup_frontend
+from .runtime_data import SmhiAlertsRuntimeData
 from .sensor import SmhiAlertCoordinator
+from .thunder import SmhiThunderCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[str] = ["sensor", "binary_sensor"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+def _fire_risk_settings(entry: ConfigEntry) -> tuple[bool, float | None, float | None]:
+    return _point_forecast_settings(
+        entry,
+        CONF_FIRE_RISK_ENABLED,
+        CONF_FIRE_RISK_LOCATION,
+        DEFAULT_FIRE_RISK_ENABLED,
+    )
+
+
+def _thunder_settings(entry: ConfigEntry) -> tuple[bool, float | None, float | None]:
+    return _point_forecast_settings(
+        entry,
+        CONF_THUNDER_PROBABILITY_ENABLED,
+        CONF_THUNDER_PROBABILITY_LOCATION,
+        DEFAULT_THUNDER_PROBABILITY_ENABLED,
+    )
+
+
+def _point_forecast_settings(
+    entry: ConfigEntry, enabled_key: str, location_key: str, default: bool
+) -> tuple[bool, float | None, float | None]:
+    """Read the explicitly configured point without assuming a district centre."""
+    enabled = entry.options.get(enabled_key, entry.data.get(enabled_key, default))
+    location = entry.options.get(location_key, entry.data.get(location_key))
+    if not enabled or not isinstance(location, dict):
+        return bool(enabled), None, None
+    if any(
+        isinstance(location.get(key), bool) for key in (CONF_LATITUDE, CONF_LONGITUDE)
+    ):
+        return True, None, None
+    try:
+        latitude = float(location[CONF_LATITUDE])
+        longitude = float(location[CONF_LONGITUDE])
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return True, None, None
+    if not (
+        isfinite(latitude)
+        and isfinite(longitude)
+        and -90 <= latitude <= 90
+        and -180 <= longitude <= 180
+    ):
+        return True, None, None
+    return True, latitude, longitude
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
@@ -76,9 +132,52 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
 
+    fire_settings = _fire_risk_settings(entry)
+    thunder_settings = _thunder_settings(entry)
+    fire_coordinator = None
+    thunder_coordinator = None
+    enabled, latitude, longitude = fire_settings
+    if enabled and latitude is not None and longitude is not None:
+        fire_coordinator = SmhiFireRiskCoordinator(hass, entry, latitude, longitude)
+    elif enabled:
+        _LOGGER.warning(
+            "Fire risk requires a valid location; choose a location in integration options"
+        )
+    enabled, latitude, longitude = thunder_settings
+    if enabled and latitude is not None and longitude is not None:
+        thunder_coordinator = SmhiThunderCoordinator(hass, entry, latitude, longitude)
+    elif enabled:
+        _LOGGER.warning(
+            "Thunderstorm probability requires a valid location; choose a location in integration options"
+        )
+    # Optional sources refresh independently and retry through their entity
+    # subscriptions. Their availability never controls the issued warnings.
+    await asyncio.gather(
+        *(
+            optional.async_refresh()
+            for optional in (fire_coordinator, thunder_coordinator)
+            if optional is not None
+        )
+    )
+    entry.runtime_data = SmhiAlertsRuntimeData(
+        warnings=coordinator,
+        fire_risk=fire_coordinator,
+        fire_risk_settings=fire_settings,
+        thunder=thunder_coordinator,
+        thunder_settings=thunder_settings,
+    )
+
     async def _options_updated(hass: HomeAssistant, updated_entry: ConfigEntry):
         domain_data = hass.data.get(DOMAIN, {})
         if updated_entry.entry_id not in domain_data:
+            return
+        if (
+            _fire_risk_settings(updated_entry)
+            != updated_entry.runtime_data.fire_risk_settings
+            or _thunder_settings(updated_entry)
+            != updated_entry.runtime_data.thunder_settings
+        ):
+            await hass.config_entries.async_reload(updated_entry.entry_id)
             return
         coord = domain_data[updated_entry.entry_id]["coordinator"]
         coord.mode = updated_entry.options.get(
