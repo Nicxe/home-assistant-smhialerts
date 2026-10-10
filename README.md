@@ -1,6 +1,6 @@
 # SMHI Alerts
 
-[![Buy me a Coffee](https://img.shields.io/badge/Support-Buy%20me%20a%20coffee-fdd734?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/NiklasV) ![GitHub Release](https://img.shields.io/github/v/release/nicxe/home-assistant-smhialerts) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/nicxe/home-assistant-smhialerts/latest/total)
+[![GitHub Sponsors](https://img.shields.io/badge/Support-GitHub%20Sponsors-30363d?logo=github)](https://github.com/sponsors/Nicxe) [![Buy me a Coffee](https://img.shields.io/badge/Alternative-Buy%20me%20a%20coffee-fdd734?logo=buy-me-a-coffee)](https://buymeacoffee.com/niklasv) ![GitHub Release](https://img.shields.io/github/v/release/nicxe/home-assistant-smhialerts) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/nicxe/home-assistant-smhialerts/latest/total)
 
 ## Overview
 SMHI Alerts brings weather warnings and risk messages from the Swedish Meteorological and Hydrological Institute (SMHI) into Home Assistant.
