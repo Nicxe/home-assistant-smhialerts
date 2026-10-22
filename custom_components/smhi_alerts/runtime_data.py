@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .fire_risk import SmhiFireRiskCoordinator
     from .sensor import SmhiAlertCoordinator
     from .thunder import SmhiThunderCoordinator
+    from .winter import SmhiWinterCoordinator
 
 
 @dataclass(slots=True)
@@ -20,3 +21,5 @@ class SmhiAlertsRuntimeData:
     fire_risk_settings: tuple[bool, float | None, float | None]
     thunder: SmhiThunderCoordinator | None = None
     thunder_settings: tuple[bool, float | None, float | None] = (False, None, None)
+    winter: SmhiWinterCoordinator | None = None
+    winter_settings: tuple[bool, float | None, float | None] = (False, None, None)

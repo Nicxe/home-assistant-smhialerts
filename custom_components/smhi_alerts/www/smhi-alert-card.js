@@ -1802,9 +1802,35 @@ if (!customElements.get('smhi-alert-card-editor')) {
 }
 
 
-// Three card types share this resource; forecast cards do not depend on a warning entity.
+// Four card types share this resource; forecast cards do not depend on a warning entity.
 const FORECAST_TEXT = {
   en: {
+        winter_title: 'Winter weather',
+        winter_caption: 'Local SMHI forecast for the selected point and stated time.',
+        winter_next_time: 'Next forecast time',
+        winter_forecast: 'Forecast times · Next 48 hours',
+        winter_time: 'Time and precipitation',
+        winter_probability: 'Frozen precipitation probability',
+        winter_probability_short: 'Frozen',
+        winter_temperature: 'Temperature',
+        winter_temperature_short: 'Temp.',
+        winter_created: 'Created',
+        winter_unknown: 'No data',
+        winter_unavailable: 'Winter weather is unavailable',
+        winter_none: 'No precipitation',
+        winter_rain: 'Rain',
+        winter_thunderstorm: 'Thunderstorm',
+        winter_freezing_rain: 'Freezing rain',
+        winter_mixed_ice: 'Mixed / ice',
+        winter_snow: 'Snow',
+        winter_wet_snow: 'Wet snow',
+        winter_rain_snow: 'Rain and snow',
+        winter_ice_pellets: 'Ice pellets',
+        winter_graupel: 'Graupel',
+        winter_hail: 'Hail',
+        winter_drizzle: 'Drizzle',
+        winter_freezing_drizzle: 'Freezing drizzle',
+        winter_setup: 'Enable local winter weather in SMHI Alerts, then select a winter weather sensor.',
         thunder_title: 'Thunderstorm probability',
         thunder_caption: 'Local SMHI forecast for each stated time.',
         thunder_next_time: 'Next forecast time',
@@ -1849,6 +1875,32 @@ const FORECAST_TEXT = {
     thunder_setup: 'Enable local thunderstorm probability in SMHI Alerts, then select its sensor.',
   },
   sv: {
+        winter_title: 'Vinterväder',
+        winter_caption: 'Lokal SMHI-prognos för vald punkt vid angiven tid.',
+        winter_next_time: 'Nästa prognostid',
+        winter_forecast: 'Prognostider · Nästa 48 timmar',
+        winter_time: 'Tid och nederbörd',
+        winter_probability: 'Sannolikhet för frusen nederbörd',
+        winter_probability_short: 'Frusen',
+        winter_temperature: 'Temperatur',
+        winter_temperature_short: 'Temp.',
+        winter_created: 'Skapad',
+        winter_unknown: 'Data saknas',
+        winter_unavailable: 'Vinterväder är inte tillgängligt',
+        winter_none: 'Ingen nederbörd',
+        winter_rain: 'Regn',
+        winter_thunderstorm: 'Åska',
+        winter_freezing_rain: 'Underkylt regn',
+        winter_mixed_ice: 'Blandat / is',
+        winter_snow: 'Snö',
+        winter_wet_snow: 'Blötsnö',
+        winter_rain_snow: 'Regn och snö',
+        winter_ice_pellets: 'Iskorn',
+        winter_graupel: 'Snöhagel',
+        winter_hail: 'Hagel',
+        winter_drizzle: 'Duggregn',
+        winter_freezing_drizzle: 'Underkylt duggregn',
+        winter_setup: 'Aktivera lokalt vinterväder i SMHI Alerts och välj sedan en vintervädersensor.',
         thunder_title: 'Åsksannolikhet',
         thunder_caption: 'Lokal SMHI-prognos för varje angiven tidpunkt.',
         thunder_next_time: 'Nästa prognostid',
@@ -1900,6 +1952,7 @@ const forecastText = (hass, key) => {
 const forecastEntities = (hass, kind) => Object.entries(hass?.states || {})
   .filter(([id, state]) => id.startsWith('sensor.') && (kind === 'thunder'
     ? state.attributes?.source_kind === THUNDER_SOURCE_KIND
+    : kind === 'winter' ? state.attributes?.source_kind === 'local_winter_forecast'
     : state.attributes?.source_kind === 'local_fire_risk_forecast'
       || (state.state === 'unavailable' && state.attributes?.device_class === 'enum'
         && Object.values(FIRE_RISK_VALUES).some((options) => JSON.stringify(options) === JSON.stringify(state.attributes.options)))))
@@ -1955,6 +2008,31 @@ class SmhiForecastCard extends LitElement {
     .thunder-forecast .forecast-scroll { max-height: 360px; overflow: auto; }
     .thunder-forecast thead { position: sticky; top: 0; background: var(--ha-card-background, var(--card-background-color)); }
     .thunder-value { font-size: 2.5em; font-weight: 500; }
+    .winter-heading { display: flex; align-items: center; gap: 8px; }
+    .winter-heading ha-icon { --mdc-icon-size: 22px; color: var(--secondary-text-color); }
+    .winter-heading h3 { margin: 0; font-size: 1.15em; font-weight: 500; }
+    .winter-caption, .winter-updated { color: var(--secondary-text-color); font-size: 0.8em; line-height: 1.5; }
+    .winter-caption { margin: 5px 0 14px; }
+    .winter-time { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 0.85em; }
+    .winter-time-label, .winter-unknown, .winter-unavailable { color: var(--secondary-text-color); }
+    .winter-condition { margin: 8px 0 16px; font-size: 1.7em; line-height: 1.2; font-weight: 500; overflow-wrap: anywhere; }
+    .winter-metrics { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; margin: 0; }
+    .winter-metrics dt { font-size: 0.8em; line-height: 1.4; color: var(--secondary-text-color); }
+    .winter-metrics dd { margin: 4px 0 0; font-size: 1.45em; line-height: 1.25; font-variant-numeric: tabular-nums; }
+    .winter-forecast { margin-top: 16px; border-top: 1px solid var(--divider-color); }
+    .winter-forecast summary { padding: 12px 0 4px; cursor: pointer; font-size: 0.9em; }
+    .winter-forecast summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+    .winter-forecast .forecast-scroll { max-height: 360px; overflow: auto; }
+    .winter-forecast table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 6px; font-size: 0.85em; }
+    .winter-forecast th, .winter-forecast td { padding: 10px 4px; text-align: start; vertical-align: top; line-height: 1.4; overflow-wrap: anywhere; }
+    .winter-forecast th:first-child { width: 48%; padding-inline-start: 0; }
+    .winter-forecast thead { position: sticky; top: 0; background: var(--ha-card-background, var(--card-background-color)); }
+    .winter-forecast thead th { color: var(--secondary-text-color); font-weight: 400; }
+    .winter-forecast tbody th { font-weight: 500; }
+    .winter-forecast tbody th time { display: block; font-size: 0.9em; font-weight: 400; color: var(--secondary-text-color); }
+    .winter-forecast tbody tr + tr { border-top: 1px solid var(--divider-color); }
+    .winter-forecast td { font-variant-numeric: tabular-nums; }
+    .winter-updated { margin-top: 12px; }
     @media (max-width: 400px) {
       ha-card { padding: 16px; }
       .fire-risk-current { gap: 8px; }
@@ -1990,10 +2068,11 @@ class SmhiForecastCard extends LitElement {
     if (changed.has('config')) return true;
     if (changed.has('hass')) {
       const state = this.hass?.states?.[this.config?.entity];
-      const time = this.constructor.kind === 'fire' ? this._fireRiskToday() : Math.floor(this._thunderNow() / 60000);
+      const time = this.constructor.kind === 'fire' ? this._fireRiskToday()
+        : Math.floor((this.constructor.kind === 'winter' ? this._winterNow() : this._thunderNow()) / 60000);
       const key = JSON.stringify([state?.state, state?.attributes, this.hass?.language,
         this.hass?.locale?.language, this.hass?.locale?.time_format, this.hass?.locale?.time_zone,
-        this.hass?.config?.time_zone, time]);
+        this.hass?.config?.time_zone, this.hass?.config?.unit_system?.temperature, time]);
       if (this._lastKey === key) return false;
       this._lastKey = key;
     }
@@ -2029,10 +2108,11 @@ class SmhiForecastCard extends LitElement {
     if (!this.hass || !this.config) return html``;
     return html`<ha-card>${!this.config.entity
       ? html`<p class="setup">${this._t(`${this.constructor.kind}_setup`)}</p>`
-      : this.constructor.kind === 'fire' ? this._renderFireRisk() : this._renderThunderProbability()}</ha-card>`;
+      : this.constructor.kind === 'fire' ? this._renderFireRisk()
+        : this.constructor.kind === 'winter' ? this._renderWinterWeather() : this._renderThunderProbability()}</ha-card>`;
   }
 
-  static getConfigElement() { return document.createElement(`smhi-${this.kind === 'fire' ? 'fire-risk' : 'thunder'}-card-editor`); }
+  static getConfigElement() { return document.createElement(`smhi-${this.kind === 'fire' ? 'fire-risk' : this.kind}-card-editor`); }
   static getStubConfig(hass) { return { entity: forecastEntities(hass, this.kind)[0] || '' }; }
 }
 
@@ -2204,6 +2284,110 @@ class SmhiThunderCard extends SmhiForecastCard {
 
 }
 
+
+const WINTER_PRECIPITATION_TYPES = [
+  'none', 'rain', 'thunderstorm', 'freezing_rain', 'mixed_ice', 'snow', 'wet_snow',
+  'rain_snow', 'ice_pellets', 'graupel', 'hail', 'drizzle', 'freezing_drizzle',
+];
+
+class SmhiWinterCard extends SmhiForecastCard {
+  static kind = 'winter';
+  _winterNow() { return Date.now(); }
+
+  _winterNumber(value, min, max) {
+    // Forecast attributes contain numbers, never HA's formatted state strings.
+    return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max ? value : null;
+  }
+
+  _winterPoint(row, now) {
+    if (!row || typeof row !== 'object' || typeof row.valid_time !== 'string') return null;
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(row.valid_time)) return null;
+    const date = this._parseDate(row.valid_time);
+    if (!date || date.getTime() <= now || date.getTime() > now + 48 * 60 * 60 * 1000) return null;
+    return {
+      valid_time: date.toISOString(),
+      precipitation_type: WINTER_PRECIPITATION_TYPES.includes(row.precipitation_type) ? row.precipitation_type : null,
+      frozen_probability: this._winterNumber(row.frozen_probability, 0, 100),
+      temperature: this._winterNumber(row.temperature, -100, 100),
+    };
+  }
+
+  _winterData() {
+    const state = this.hass?.states?.[this.config?.entity];
+    const attrs = state?.attributes;
+    if (!state || attrs?.source_kind !== 'local_winter_forecast'
+      || state.state === 'unavailable' || !state.state) return null;
+    const now = this._winterNow();
+    const current = this._winterPoint(attrs.current, now);
+    const seen = new Set();
+    const forecast = (Array.isArray(attrs.forecast) ? attrs.forecast : [])
+      .map((row) => this._winterPoint(row, now))
+      .filter((row) => row)
+      .sort((a, b) => a.valid_time.localeCompare(b.valid_time))
+      .filter((row) => !seen.has(row.valid_time) && seen.add(row.valid_time));
+    // The selected sensor can be unknown while its sibling values are valid.
+    return { current, forecast, created: attrs.created_time };
+  }
+
+  _winterTypeLabel(value) {
+    return WINTER_PRECIPITATION_TYPES.includes(value) ? this._t(`winter_${value}`) : this._t('winter_unknown');
+  }
+
+  _winterValue(value, unit) {
+    if (value === null) return this._t('winter_unknown');
+    const number = new Intl.NumberFormat(this.hass?.locale?.language || this.hass?.language || 'en', {
+      maximumFractionDigits: 1,
+    }).format(value);
+    return `${number} ${unit}`;
+  }
+
+  _winterTemperature(value) {
+    const unit = this.hass?.config?.unit_system?.temperature === '°F' ? '°F' : '°C';
+    return this._winterValue(value === null ? null : unit === '°F' ? value * 9 / 5 + 32 : value, unit);
+  }
+
+  _renderWinterWeather() {
+    const data = this._winterData();
+    const created = data?.created && this._parseDate(data.created);
+    return html`
+      <section class="winter-weather" aria-label=${this.config.title || this._t('winter_title')}>
+        <div class="winter-heading">
+          <ha-icon icon="mdi:weather-snowy-rainy" aria-hidden="true"></ha-icon>
+          <h3>${this.config.title || this._t('winter_title')}</h3>
+        </div>
+        <p class="winter-caption">${this._t('winter_caption')}</p>
+        ${data?.current ? html`
+          <div class="winter-time">
+            <span class="winter-time-label">${this._t('winter_next_time')}</span>
+            <time datetime=${data.current.valid_time}>${this._formatDate(data.current.valid_time)}</time>
+          </div>
+          <p class=${data.current.precipitation_type === null ? 'winter-condition winter-unknown' : 'winter-condition'}>${this._winterTypeLabel(data.current.precipitation_type)}</p>
+          <dl class="winter-metrics">
+            <div><dt>${this._t('winter_probability')}</dt>
+              <dd class=${data.current.frozen_probability === null ? 'winter-unknown' : ''}>${this._winterValue(data.current.frozen_probability, '%')}</dd></div>
+            <div><dt>${this._t('winter_temperature')}</dt>
+              <dd class=${data.current.temperature === null ? 'winter-unknown' : ''}>${this._winterTemperature(data.current.temperature)}</dd></div>
+          </dl>` : html`<p class="winter-unavailable">${this._t('winter_unavailable')}</p>`}
+        ${this.config.show_forecast && data?.forecast.length ? html`
+          <details class="winter-forecast" .open=${this._forecastOpen} @toggle=${this._forecastToggled}>
+            <summary>${this._t('winter_forecast')}</summary>
+            <div class="forecast-scroll"><table>
+              <thead><tr><th scope="col">${this._t('winter_time')}</th>
+                <th scope="col" aria-label=${this._t('winter_probability')}>${this._t('winter_probability_short')}</th>
+                <th scope="col" aria-label=${this._t('winter_temperature')}>${this._t('winter_temperature_short')}</th></tr></thead>
+              <tbody>${data.forecast.map((row) => html`
+                <tr><th scope="row"><time datetime=${row.valid_time}>${this._formatDate(row.valid_time)}</time>${this._winterTypeLabel(row.precipitation_type)}</th>
+                  <td class=${row.frozen_probability === null ? 'winter-unknown' : ''}>${this._winterValue(row.frozen_probability, '%')}</td>
+                  <td class=${row.temperature === null ? 'winter-unknown' : ''}>${this._winterTemperature(row.temperature)}</td></tr>
+              `)}</tbody>
+            </table></div>
+          </details>` : html``}
+        ${created ? html`<div class="winter-updated">SMHI · ${this._t('winter_created')} ${this._formatDate(created)}</div>` : html``}
+      </section>
+    `;
+  }
+}
+
 class SmhiForecastCardEditor extends LitElement {
   static properties = { hass: {}, _config: {} };
   setConfig(config) { this._config = { ...config }; }
@@ -2235,9 +2419,11 @@ class SmhiForecastCardEditor extends LitElement {
 }
 class SmhiFireRiskCardEditor extends SmhiForecastCardEditor { static kind = 'fire'; }
 class SmhiThunderCardEditor extends SmhiForecastCardEditor { static kind = 'thunder'; }
+class SmhiWinterCardEditor extends SmhiForecastCardEditor { static kind = 'winter'; }
 for (const [name, element] of [
   ['smhi-fire-risk-card', SmhiFireRiskCard], ['smhi-fire-risk-card-editor', SmhiFireRiskCardEditor],
   ['smhi-thunder-card', SmhiThunderCard], ['smhi-thunder-card-editor', SmhiThunderCardEditor],
+  ['smhi-winter-card', SmhiWinterCard], ['smhi-winter-card-editor', SmhiWinterCardEditor],
 ]) {
   if (!customElements.get(name)) customElements.define(name, element);
 }
@@ -2255,6 +2441,8 @@ window.customCards.push(
     description: 'Local forest and grass fire risk, fuel drying and daily forecasts. Works independently of the alert card.' },
   { type: 'smhi-thunder-card', name: 'SMHI Thunder Card', preview: true,
     description: 'Local thunderstorm probability with exact forecast times for the next 48 hours. Works independently of the alert card.' },
+  { type: 'smhi-winter-card', name: 'SMHI Winter Card', preview: true,
+    description: 'Local precipitation type, frozen precipitation probability and temperature for the next 48 hours.' },
 );
 
 
