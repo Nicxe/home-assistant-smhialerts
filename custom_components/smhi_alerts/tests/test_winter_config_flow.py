@@ -13,6 +13,7 @@ from custom_components.smhi_alerts.config_flow import _build_entry_data
 from custom_components.smhi_alerts.const import (
     CONF_FIRE_RISK_ENABLED,
     CONF_FIRE_RISK_LOCATION,
+    CONF_SNOW_DEPTH_ENABLED,
     CONF_THUNDER_PROBABILITY_ENABLED,
     CONF_THUNDER_PROBABILITY_LOCATION,
     CONF_WINTER_ENABLED,
@@ -23,6 +24,9 @@ from custom_components.smhi_alerts.const import (
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 
 WARNING_OPTIONS = {
+    "wind_enabled": False,
+    "precipitation_enabled": False,
+    "analysis_enabled": False,
     "mode": "district",
     "district": "14",
     "language": "sv",
@@ -60,7 +64,11 @@ def mock_external_setup():
 def test_legacy_data_keeps_winter_disabled_without_assuming_a_point():
     existing = {**WARNING_OPTIONS, **OTHER_SOURCES}
     data = _build_entry_data(existing, 60, 18)
-    assert data == {**existing, CONF_WINTER_ENABLED: False}
+    assert data == {
+        **existing,
+        CONF_WINTER_ENABLED: False,
+        CONF_SNOW_DEPTH_ENABLED: False,
+    }
     assert CONF_WINTER_LOCATION not in data
 
 
@@ -122,7 +130,7 @@ async def test_initial_flow_suggests_home_and_requires_winter_point_confirmation
     assert result["step_id"] == "reload_notice"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == submitted
+    assert result["data"] == {**submitted, CONF_SNOW_DEPTH_ENABLED: False}
     await hass.async_block_till_done()
 
 
@@ -141,7 +149,11 @@ async def test_options_toggle_winter_without_changing_saved_sources(hass, enable
         result["flow_id"], {**WARNING_OPTIONS, CONF_WINTER_ENABLED: enabled}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options == {**existing, CONF_WINTER_ENABLED: enabled}
+    assert entry.options == {
+        **existing,
+        CONF_WINTER_ENABLED: enabled,
+        CONF_SNOW_DEPTH_ENABLED: False,
+    }
 
 
 async def test_older_options_submission_preserves_enabled_winter_and_saved_point(hass):
@@ -159,7 +171,11 @@ async def test_older_options_submission_preserves_enabled_winter_and_saved_point
         result["flow_id"], WARNING_OPTIONS
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options == {**WARNING_OPTIONS, **current}
+    assert entry.options == {
+        **WARNING_OPTIONS,
+        **current,
+        CONF_SNOW_DEPTH_ENABLED: False,
+    }
 
 
 async def test_options_cannot_enable_winter_without_own_location(hass):
@@ -202,7 +218,11 @@ async def test_reconfigure_changes_winter_point_and_preserves_other_settings(has
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigured_successful"
-    assert entry.data == entry.options == {**existing, CONF_WINTER_LOCATION: new_point}
+    assert (
+        entry.data
+        == entry.options
+        == {**existing, CONF_WINTER_LOCATION: new_point, CONF_SNOW_DEPTH_ENABLED: False}
+    )
 
 
 def test_translations_cover_every_winter_type_and_canonical_english():

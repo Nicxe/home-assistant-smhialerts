@@ -10,6 +10,8 @@ from homeassistant.helpers import aiohttp_client, entity_registry as er
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
+    CONF_ANALYSIS_ENABLED,
+    CONF_ANALYSIS_LOCATION,
     CONF_DISTRICT,
     CONF_EXCLUDE_SEA,
     CONF_EXCLUDED_MESSAGE_TYPES,
@@ -22,11 +24,19 @@ from .const import (
     CONF_LONGITUDE,
     CONF_MESSAGE_TYPES,
     CONF_MODE,
+    CONF_PRECIPITATION_ENABLED,
+    CONF_PRECIPITATION_LOCATION,
     CONF_RADIUS_KM,
+    CONF_SNOW_DEPTH_ENABLED,
+    CONF_SNOW_DEPTH_PARAMETER,
+    CONF_SNOW_DEPTH_STATION,
     CONF_THUNDER_PROBABILITY_ENABLED,
     CONF_THUNDER_PROBABILITY_LOCATION,
+    CONF_WIND_ENABLED,
+    CONF_WIND_LOCATION,
     CONF_WINTER_ENABLED,
     CONF_WINTER_LOCATION,
+    DEFAULT_ANALYSIS_ENABLED,
     DEFAULT_EXCLUDE_SEA,
     DEFAULT_EXCLUDED_MESSAGE_TYPES,
     DEFAULT_FIRE_RISK_ENABLED,
@@ -35,17 +45,23 @@ from .const import (
     DEFAULT_LANGUAGE,
     DEFAULT_MESSAGE_TYPES,
     DEFAULT_MODE,
+    DEFAULT_PRECIPITATION_ENABLED,
     DEFAULT_RADIUS_KM,
     DEFAULT_THUNDER_PROBABILITY_ENABLED,
+    DEFAULT_WIND_ENABLED,
     DEFAULT_WINTER_ENABLED,
     DOMAIN,
 )
 from .fire_risk import SmhiFireRiskCoordinator
 from .frontend import async_setup_frontend
+from .mesan import SmhiMesanCoordinator
+from .precipitation import PRECIPITATION_PARAMETERS, SmhiPrecipitationCoordinator
 from .runtime_data import SmhiAlertsRuntimeData
 from .sensor import SmhiAlertCoordinator
-from .snow import SmhiSnowClient
-from .thunder import THUNDER_UPDATE_INTERVAL, SmhiThunderCoordinator
+from .snow import SNOW_UPDATE_INTERVAL, SmhiSnowClient
+from .snow_depth import SmhiSnowDepthCoordinator
+from .thunder import SmhiThunderCoordinator
+from .wind import WIND_PARAMETERS, SmhiWindCoordinator
 from .winter import WINTER_PARAMETERS, SmhiWinterCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,6 +93,47 @@ def _winter_settings(entry: ConfigEntry) -> tuple[bool, float | None, float | No
     return _point_forecast_settings(
         entry, CONF_WINTER_ENABLED, CONF_WINTER_LOCATION, DEFAULT_WINTER_ENABLED
     )
+
+
+def _wind_settings(entry: ConfigEntry) -> tuple[bool, float | None, float | None]:
+    return _point_forecast_settings(
+        entry, CONF_WIND_ENABLED, CONF_WIND_LOCATION, DEFAULT_WIND_ENABLED
+    )
+
+
+def _precipitation_settings(
+    entry: ConfigEntry,
+) -> tuple[bool, float | None, float | None]:
+    return _point_forecast_settings(
+        entry,
+        CONF_PRECIPITATION_ENABLED,
+        CONF_PRECIPITATION_LOCATION,
+        DEFAULT_PRECIPITATION_ENABLED,
+    )
+
+
+def _analysis_settings(entry: ConfigEntry) -> tuple[bool, float | None, float | None]:
+    return _point_forecast_settings(
+        entry, CONF_ANALYSIS_ENABLED, CONF_ANALYSIS_LOCATION, DEFAULT_ANALYSIS_ENABLED
+    )
+
+
+def _snow_depth_settings(entry: ConfigEntry) -> tuple[bool, str | None, str | None]:
+    """Require an explicit station and source; never substitute another station."""
+    current = {**entry.data, **entry.options}
+    enabled = bool(current.get(CONF_SNOW_DEPTH_ENABLED, False))
+    station = current.get(CONF_SNOW_DEPTH_STATION)
+    parameter = current.get(CONF_SNOW_DEPTH_PARAMETER)
+    if not enabled:
+        return False, None, None
+    if (
+        not isinstance(station, str)
+        or not station.isascii()
+        or not station.isdigit()
+        or parameter not in ("8", "52")
+    ):
+        return True, None, None
+    return True, station, parameter
 
 
 def _point_forecast_settings(
@@ -146,24 +203,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     fire_settings = _fire_risk_settings(entry)
     thunder_settings = _thunder_settings(entry)
     winter_settings = _winter_settings(entry)
+    snow_depth_settings = _snow_depth_settings(entry)
+    wind_settings = _wind_settings(entry)
+    precipitation_settings = _precipitation_settings(entry)
+    analysis_settings = _analysis_settings(entry)
     fire_coordinator = None
     thunder_coordinator = None
     winter_coordinator = None
-    shared_snow_client = None
-    if (
-        thunder_settings[0]
-        and winter_settings[0]
-        and thunder_settings[1] is not None
-        and thunder_settings[2] is not None
-        and thunder_settings[1:] == winter_settings[1:]
+    snow_depth_coordinator = None
+    wind_coordinator = None
+    precipitation_coordinator = None
+    analysis_coordinator = None
+    # Share only enabled SNOW parameters at the same explicitly chosen point.
+    point_parameters: dict[tuple[float, float], set[str]] = {}
+    for settings, parameters in (
+        (thunder_settings, ("thunderstorm_probability",)),
+        (winter_settings, WINTER_PARAMETERS),
+        (wind_settings, WIND_PARAMETERS),
+        (precipitation_settings, PRECIPITATION_PARAMETERS),
     ):
-        shared_snow_client = SmhiSnowClient(
+        enabled, latitude, longitude = settings
+        if enabled and latitude is not None and longitude is not None:
+            point_parameters.setdefault((latitude, longitude), set()).update(parameters)
+    point_clients = {
+        point: SmhiSnowClient(
             aiohttp_client.async_get_clientsession(hass),
-            thunder_settings[1],
-            thunder_settings[2],
-            parameters=("thunderstorm_probability", *WINTER_PARAMETERS),
-            cache_interval=THUNDER_UPDATE_INTERVAL,
+            *point,
+            parameters=tuple(sorted(parameters)),
+            cache_interval=SNOW_UPDATE_INTERVAL,
         )
+        for point, parameters in point_parameters.items()
+    }
     enabled, latitude, longitude = fire_settings
     if enabled and latitude is not None and longitude is not None:
         fire_coordinator = SmhiFireRiskCoordinator(hass, entry, latitude, longitude)
@@ -174,7 +244,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     enabled, latitude, longitude = thunder_settings
     if enabled and latitude is not None and longitude is not None:
         thunder_coordinator = SmhiThunderCoordinator(
-            hass, entry, latitude, longitude, client=shared_snow_client
+            hass,
+            entry,
+            latitude,
+            longitude,
+            client=point_clients.get(thunder_settings[1:]),
         )
     elif enabled:
         _LOGGER.warning(
@@ -183,18 +257,77 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     enabled, latitude, longitude = winter_settings
     if enabled and latitude is not None and longitude is not None:
         winter_coordinator = SmhiWinterCoordinator(
-            hass, entry, latitude, longitude, client=shared_snow_client
+            hass,
+            entry,
+            latitude,
+            longitude,
+            client=point_clients.get(winter_settings[1:]),
         )
     elif enabled:
         _LOGGER.warning(
             "Winter forecasts require a valid location; choose a location in integration options"
+        )
+    enabled, station_id, parameter = snow_depth_settings
+    if enabled and station_id is not None and parameter is not None:
+        snow_depth_coordinator = SmhiSnowDepthCoordinator(
+            hass,
+            entry,
+            station_id,
+            parameter,
+            latitude=hass.config.latitude,
+            longitude=hass.config.longitude,
+        )
+    elif enabled:
+        _LOGGER.warning(
+            "Snow depth requires a station; choose a station in integration options"
+        )
+    enabled, latitude, longitude = wind_settings
+    if enabled and latitude is not None and longitude is not None:
+        wind_coordinator = SmhiWindCoordinator(
+            hass,
+            entry,
+            latitude,
+            longitude,
+            client=point_clients.get(wind_settings[1:]),
+        )
+    elif enabled:
+        _LOGGER.warning(
+            "Wind forecasts require a valid location in integration options"
+        )
+    enabled, latitude, longitude = precipitation_settings
+    if enabled and latitude is not None and longitude is not None:
+        precipitation_coordinator = SmhiPrecipitationCoordinator(
+            hass,
+            entry,
+            latitude,
+            longitude,
+            client=point_clients.get(precipitation_settings[1:]),
+        )
+    elif enabled:
+        _LOGGER.warning(
+            "Precipitation forecasts require a valid location in integration options"
+        )
+    enabled, latitude, longitude = analysis_settings
+    if enabled and latitude is not None and longitude is not None:
+        analysis_coordinator = SmhiMesanCoordinator(hass, entry, latitude, longitude)
+    elif enabled:
+        _LOGGER.warning(
+            "Weather analysis requires a valid location in integration options"
         )
     # Optional sources refresh independently and retry through their entity
     # subscriptions. Their availability never controls the issued warnings.
     await asyncio.gather(
         *(
             optional.async_refresh()
-            for optional in (fire_coordinator, thunder_coordinator, winter_coordinator)
+            for optional in (
+                fire_coordinator,
+                thunder_coordinator,
+                winter_coordinator,
+                snow_depth_coordinator,
+                wind_coordinator,
+                precipitation_coordinator,
+                analysis_coordinator,
+            )
             if optional is not None
         )
     )
@@ -206,6 +339,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         thunder_settings=thunder_settings,
         winter=winter_coordinator,
         winter_settings=winter_settings,
+        snow_depth=snow_depth_coordinator,
+        snow_depth_settings=snow_depth_settings,
+        wind=wind_coordinator,
+        wind_settings=wind_settings,
+        precipitation=precipitation_coordinator,
+        precipitation_settings=precipitation_settings,
+        analysis=analysis_coordinator,
+        analysis_settings=analysis_settings,
     )
 
     async def _options_updated(hass: HomeAssistant, updated_entry: ConfigEntry):
@@ -219,6 +360,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             != updated_entry.runtime_data.thunder_settings
             or _winter_settings(updated_entry)
             != updated_entry.runtime_data.winter_settings
+            or _snow_depth_settings(updated_entry)
+            != updated_entry.runtime_data.snow_depth_settings
+            or _wind_settings(updated_entry) != updated_entry.runtime_data.wind_settings
+            or _precipitation_settings(updated_entry)
+            != updated_entry.runtime_data.precipitation_settings
+            or _analysis_settings(updated_entry)
+            != updated_entry.runtime_data.analysis_settings
         ):
             await hass.config_entries.async_reload(updated_entry.entry_id)
             return
