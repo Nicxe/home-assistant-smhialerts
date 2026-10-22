@@ -52,6 +52,11 @@ from .const import (
 )
 from .fire_sensor import FIRE_RISK_SENSORS, SmhiFireRiskSensor
 from .thunder_sensor import SmhiThunderSensor
+from .winter_sensor import (
+    SmhiWinterPrecipitationSensor,
+    SmhiWinterProbabilitySensor,
+    SmhiWinterTemperatureSensor,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,6 +90,15 @@ async def async_setup_entry(
         )
     if thunder_coordinator := entry.runtime_data.thunder:
         entities.append(SmhiThunderSensor(thunder_coordinator, entry))
+    if winter_coordinator := entry.runtime_data.winter:
+        entities.extend(
+            sensor_class(winter_coordinator, entry)
+            for sensor_class in (
+                SmhiWinterPrecipitationSensor,
+                SmhiWinterProbabilitySensor,
+                SmhiWinterTemperatureSensor,
+            )
+        )
     async_add_entities(entities)
 
     _LOGGER.debug(

@@ -26,6 +26,7 @@ from custom_components.smhi_alerts.const import (
     CONF_RADIUS_KM,
     CONF_THUNDER_PROBABILITY_ENABLED,
     CONF_THUNDER_PROBABILITY_LOCATION,
+    CONF_WINTER_ENABLED,
     DOMAIN,
 )
 
@@ -172,7 +173,7 @@ async def test_create_flow_suggests_location_and_creates_independent_forecasts(h
     assert result["step_id"] == "reload_notice"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == submitted
+    assert result["data"] == {**submitted, CONF_WINTER_ENABLED: False}
     await hass.async_block_till_done()
 
 
@@ -228,6 +229,7 @@ async def test_options_toggle_thunder_preserves_fire_and_warning_choices(
     assert entry.options == {
         **existing,
         CONF_THUNDER_PROBABILITY_ENABLED: thunder_enabled,
+        CONF_WINTER_ENABLED: False,
     }
 
 
@@ -272,7 +274,12 @@ async def test_older_options_or_disabling_thunder_keeps_both_saved_points(
         result["flow_id"], {**WARNING_OPTIONS, **updates}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options == {**WARNING_OPTIONS, **current, **updates}
+    assert entry.options == {
+        **WARNING_OPTIONS,
+        **current,
+        **updates,
+        CONF_WINTER_ENABLED: False,
+    }
 
 
 async def test_reconfigure_can_change_thunder_point_without_changing_fire_or_warnings(
@@ -305,7 +312,11 @@ async def test_reconfigure_can_change_thunder_point_without_changing_fire_or_war
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigured_successful"
-    assert entry.data == {**existing, CONF_THUNDER_PROBABILITY_LOCATION: new_point}
+    assert entry.data == {
+        **existing,
+        CONF_THUNDER_PROBABILITY_LOCATION: new_point,
+        CONF_WINTER_ENABLED: False,
+    }
     assert entry.options == entry.data
 
 
