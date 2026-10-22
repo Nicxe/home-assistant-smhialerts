@@ -17,7 +17,9 @@
                     "fire_risk_enabled": "Aktivera lokala brandriskprognoser",
                     "fire_risk_location": "Brandriskens position (karta)",
                     "thunder_probability_enabled": "Aktivera lokal åsksannolikhet",
-                    "thunder_probability_location": "Åsksannolikhetens position (karta)"
+                    "thunder_probability_location": "Åsksannolikhetens position (karta)",
+                    "winter_enabled": "Aktivera lokala vinterprognoser",
+                    "winter_location": "Plats för vinterprognos (karta)"
                 },
                 "data_description": {
                     "mode": "Välj att filtrera på administrativt distrikt eller på koordinat + radie.",
@@ -30,7 +32,9 @@
                     "fire_risk_enabled": "Skapa separata sensorer för skogsbrandsrisk, gräsbrandsrisk och bränsleuttorkning i skog, med dygnsprognoser. Prognoserna påverkar inte antalet utfärdade varningar och visar inte om eldningsförbud gäller.",
                     "fire_risk_location": "Välj eller bekräfta den exakta prognospunkten, även när varningar använder ett distrikt. Det första förslaget är Home Assistants hemposition. SMHI tillhandahåller produkten för land och inlandsvatten i Sverige; andra punkter kan sakna data. Varningsradien används inte.",
                     "thunder_probability_enabled": "Visa åsksannolikhet vid nästa prognostid och prognosen för kommande 48 timmar. Detta är en lokal prognos, inte en utfärdad varning.",
-                    "thunder_probability_location": "Välj eller bekräfta den exakta prognospunkten. Det första förslaget är Home Assistants hemposition. Punkten är oberoende av varningsfiltret och brandriskens position; varningsradien används inte. Punkter utanför SMHI:s prognosområde kan sakna data."
+                    "thunder_probability_location": "Välj eller bekräfta den exakta prognospunkten. Det första förslaget är Home Assistants hemposition. Punkten är oberoende av varningsfiltret och brandriskens position; varningsradien används inte. Punkter utanför SMHI:s prognosområde kan sakna data.",
+                    "winter_enabled": "Visa nederbördstyp, sannolikhet för frusen nederbörd och temperatur vid nästa prognostid, med prognos för kommande 48 timmar. Det är lokala prognoser, inte snödjup, väglag eller utfärdade varningar.",
+                    "winter_location": "Välj eller bekräfta den exakta prognospunkten. Förslaget är din hemposition i Home Assistant. Punkten är oberoende av varningsfiltret och övriga lokala prognoser; varningsradien gäller inte. Punkter utanför SMHI:s prognosområde kan sakna data."
                 }
             },
             "reconfigure": {
@@ -49,7 +53,9 @@
                     "fire_risk_enabled": "Aktivera lokala brandriskprognoser",
                     "fire_risk_location": "Brandriskens position (karta)",
                     "thunder_probability_enabled": "Aktivera lokal åsksannolikhet",
-                    "thunder_probability_location": "Åsksannolikhetens position (karta)"
+                    "thunder_probability_location": "Åsksannolikhetens position (karta)",
+                    "winter_enabled": "Aktivera lokala vinterprognoser",
+                    "winter_location": "Plats för vinterprognos (karta)"
                 },
                 "data_description": {
                     "mode": "Välj att filtrera på administrativt distrikt eller på koordinat + radie.",
@@ -62,7 +68,9 @@
                     "location": "Välj position på en karta. Standard hämtas från Home Assistants hemposition.",
                     "exclude_sea": "Exkludera marina varningar (t.ex. högt vattenstånd, medelvind till havs).",
                     "thunder_probability_enabled": "Visa åsksannolikhet vid nästa prognostid och prognosen för kommande 48 timmar. Detta är en lokal prognos, inte en utfärdad varning.",
-                    "thunder_probability_location": "Välj eller bekräfta den exakta prognospunkten. Det första förslaget är Home Assistants hemposition. Punkten är oberoende av varningsfiltret och brandriskens position; varningsradien används inte. Punkter utanför SMHI:s prognosområde kan sakna data."
+                    "thunder_probability_location": "Välj eller bekräfta den exakta prognospunkten. Det första förslaget är Home Assistants hemposition. Punkten är oberoende av varningsfiltret och brandriskens position; varningsradien används inte. Punkter utanför SMHI:s prognosområde kan sakna data.",
+                    "winter_enabled": "Visa nederbördstyp, sannolikhet för frusen nederbörd och temperatur vid nästa prognostid, med prognos för kommande 48 timmar. Det är lokala prognoser, inte snödjup, väglag eller utfärdade varningar.",
+                    "winter_location": "Välj eller bekräfta den exakta prognospunkten. Förslaget är din hemposition i Home Assistant. Punkten är oberoende av varningsfiltret och övriga lokala prognoser; varningsradien gäller inte. Punkter utanför SMHI:s prognosområde kan sakna data."
                 }
             },
             "reload_notice": {
@@ -72,7 +80,8 @@
         },
         "error": {
             "invalid_fire_risk_location": "Välj en brandriskposition med giltig latitud och longitud.",
-            "invalid_thunder_probability_location": "Välj en position för åsksannolikhet med giltig latitud och longitud."
+            "invalid_thunder_probability_location": "Välj en position för åsksannolikhet med giltig latitud och longitud.",
+            "invalid_winter_location": "Välj en plats för vinterprognos med giltig latitud och longitud."
         },
         "abort": {
             "entry_not_found": "Konfigurationsposten hittades inte.",
@@ -98,7 +107,9 @@
                     "location": "Position (karta)",
                     "exclude_sea": "Exkludera varningar till havs",
                     "thunder_probability_enabled": "Aktivera lokal åsksannolikhet",
-                    "thunder_probability_location": "Åsksannolikhetens position (karta)"
+                    "thunder_probability_location": "Åsksannolikhetens position (karta)",
+                    "winter_enabled": "Aktivera lokala vinterprognoser",
+                    "winter_location": "Plats för vinterprognos (karta)"
                 },
                 "data_description": {
                     "mode": "Välj att filtrera på administrativt distrikt eller på koordinat + radie.",
@@ -111,13 +122,16 @@
                     "fire_risk_enabled": "Skapa separata sensorer för skogsbrandsrisk, gräsbrandsrisk och bränsleuttorkning i skog, med dygnsprognoser. Prognoserna påverkar inte antalet utfärdade varningar och visar inte om eldningsförbud gäller.",
                     "fire_risk_location": "Välj eller bekräfta den exakta prognospunkten, även när varningar använder ett distrikt. Det första förslaget är Home Assistants hemposition. SMHI tillhandahåller produkten för land och inlandsvatten i Sverige; andra punkter kan sakna data. Varningsradien används inte.",
                     "thunder_probability_enabled": "Visa åsksannolikhet vid nästa prognostid och prognosen för kommande 48 timmar. Detta är en lokal prognos, inte en utfärdad varning.",
-                    "thunder_probability_location": "Välj eller bekräfta den exakta prognospunkten. Det första förslaget är Home Assistants hemposition. Punkten är oberoende av varningsfiltret och brandriskens position; varningsradien används inte. Punkter utanför SMHI:s prognosområde kan sakna data."
+                    "thunder_probability_location": "Välj eller bekräfta den exakta prognospunkten. Det första förslaget är Home Assistants hemposition. Punkten är oberoende av varningsfiltret och brandriskens position; varningsradien används inte. Punkter utanför SMHI:s prognosområde kan sakna data.",
+                    "winter_enabled": "Visa nederbördstyp, sannolikhet för frusen nederbörd och temperatur vid nästa prognostid, med prognos för kommande 48 timmar. Det är lokala prognoser, inte snödjup, väglag eller utfärdade varningar.",
+                    "winter_location": "Välj eller bekräfta den exakta prognospunkten. Förslaget är din hemposition i Home Assistant. Punkten är oberoende av varningsfiltret och övriga lokala prognoser; varningsradien gäller inte. Punkter utanför SMHI:s prognosområde kan sakna data."
                 }
             }
         },
         "error": {
             "invalid_fire_risk_location": "Välj en brandriskposition med giltig latitud och longitud.",
-            "invalid_thunder_probability_location": "Välj en position för åsksannolikhet med giltig latitud och longitud."
+            "invalid_thunder_probability_location": "Välj en position för åsksannolikhet med giltig latitud och longitud.",
+            "invalid_winter_location": "Välj en plats för vinterprognos med giltig latitud och longitud."
         }
     },
     "entity": {
@@ -157,6 +171,30 @@
             },
             "thunder_probability": {
                 "name": "Åsksannolikhet"
+            },
+            "winter_precipitation_type": {
+                "name": "Nederbördstyp vinterprognos",
+                "state": {
+                    "none": "Ingen nederbörd",
+                    "rain": "Regn",
+                    "thunderstorm": "Åska",
+                    "freezing_rain": "Underkylt regn",
+                    "mixed_ice": "Blandad/is",
+                    "snow": "Snö",
+                    "wet_snow": "Blötsnö",
+                    "rain_snow": "Regn och snö",
+                    "ice_pellets": "Iskorn",
+                    "graupel": "Snöhagel",
+                    "hail": "Hagel",
+                    "drizzle": "Duggregn",
+                    "freezing_drizzle": "Underkylt duggregn"
+                }
+            },
+            "winter_frozen_probability": {
+                "name": "Sannolikhet för frusen nederbörd"
+            },
+            "winter_temperature": {
+                "name": "Temperatur vinterprognos"
             }
         }
     }

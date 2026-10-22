@@ -1,0 +1,37 @@
+{
+  "createdTime": "2026-10-22T15:29:14Z",
+  "referenceTime": "2026-10-22T15:15:00Z",
+  "geometry": {"type": "Point", "coordinates": [11.99605, 58.008376]},
+  "timeSeries": [
+    {
+      "time": "2026-10-22T16:00:00Z",
+      "intervalParametersStartTime": "2026-10-22T15:00:00Z",
+      "data": {
+        "air_temperature": 10.0,
+        "predominant_precipitation_type_at_surface": 0,
+        "probability_of_frozen_precipitation": 0.01,
+        "thunderstorm_probability": 6
+      }
+    },
+    {
+      "time": "2026-10-22T17:00:00Z",
+      "intervalParametersStartTime": "2026-10-22T16:00:00Z",
+      "data": {
+        "air_temperature": 9.6,
+        "predominant_precipitation_type_at_surface": 0,
+        "probability_of_frozen_precipitation": 0.01,
+        "thunderstorm_probability": 5
+      }
+    },
+    {
+      "time": "2026-10-22T18:00:00Z",
+      "intervalParametersStartTime": "2026-10-22T17:00:00Z",
+      "data": {
+        "air_temperature": 9.0,
+        "predominant_precipitation_type_at_surface": 1,
+        "probability_of_frozen_precipitation": 0.0,
+        "thunderstorm_probability": 0
+      }
+    }
+  ]
+}
