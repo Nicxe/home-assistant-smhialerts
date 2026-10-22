@@ -1,0 +1,8 @@
+{
+  "updated": 1792686420000,
+  "parameter": {"key": "52", "name": "Snödjup", "summary": "momentanvärde varje minut", "unit": "meter"},
+  "station": {"key": "72620", "name": "Askim D", "owner": "SMHI", "ownerCategory": "CLIMATE", "measuringStations": "CORE", "height": 0.0},
+  "period": {"key": "latest-day", "from": 1792594801000, "to": 1792686420000, "summary": "Data från senaste dygnet", "sampling": "Ej angivet"},
+  "position": [{"from": 1480550400000, "to": 1792686429000, "height": 88.33, "latitude": 57.6284, "longitude": 11.9618}],
+  "value": [{"date": 1792648800000, "value": "0.000000", "quality": "G"}]
+}

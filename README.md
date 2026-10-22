@@ -7,7 +7,7 @@ SMHI Alerts brings weather warnings and risk messages from the Swedish Meteorolo
 
 This repository now contains both:
 - The Home Assistant integration (`smhi_alerts`)
-- Four independent Lovelace cards for official alerts, local fire risk, thunderstorm probability and local winter forecasts (bundled in `smhi-alert-card.js`)
+- Seven independent Lovelace cards for official alerts, fire risk, thunderstorm probability, winter weather, wind gusts, precipitation and past weather analysis (bundled in `smhi-alert-card.js`)
 
 ## Installation
 
@@ -22,7 +22,7 @@ You can also add the repository manually in HACS as type **Integration**.
 3. Restart Home Assistant.
 
 ### Dashboard card installation
-All four cards are bundled with this integration and use the same resource.
+All seven cards are bundled with this integration and use the same resource.
 
 When the integration starts, it automatically:
 - syncs the bundled card to `config/www/smhi-alert-card.js`
@@ -35,14 +35,17 @@ If you have just installed or updated, reload the browser once to ensure the lat
 1. Open your dashboard.
 2. Select **Edit dashboard**.
 3. Add a new card.
-4. Choose **SMHI Alert Card**, **SMHI Fire Risk Card**, **SMHI Thunder Card** or **SMHI Winter Card**.
+4. Choose the SMHI card for the data source you want to display.
 5. Select the sensor for that card in its visual editor.
 
 Manual card types:
 - `custom:smhi-alert-card` — official SMHI warnings and messages
 - `custom:smhi-fire-risk-card` — local fire risk and daily forecasts
 - `custom:smhi-thunder-card` — local thunderstorm probability and forecast times
-- `custom:smhi-winter-card` — local precipitation type, frozen precipitation probability and temperature
+- `custom:smhi-winter-card` — local precipitation type, frozen precipitation probability and temperature, with optional observed snow depth
+- `custom:smhi-wind-card` — next wind gust and highest forecast gust in the next 24 hours
+- `custom:smhi-precipitation-card` — precipitation probability and amounts for complete source intervals
+- `custom:smhi-analysis-card` — past precipitation and snow amount changes from SMHI weather analysis
 
 ### Map configuration
 Enable **Show map (geometry)** in the card editor to display the affected warning area. The integration option **Include geometry (map polygons)** must also be enabled for the selected SMHI Alerts entry.
@@ -245,6 +248,144 @@ or long-term measurement statistics.
 
 Source: [SMHI SNOW point forecasts](https://opendata.smhi.se/metfcst/snow1gv1/get_point_forecast),
 [parameter definitions](https://opendata.smhi.se/metfcst/snow1gv1/parameters).
+
+### Optional observed snow depth
+
+Open **Settings > Devices & Services > SMHI Alerts > Configure** and enable
+**Enable observed snow depth**. The next step lists station and observation
+source combinations, ordered by distance from the Home Assistant home location.
+Each label shows the station name, distance and SMHI's source description. You
+must explicitly select and confirm a source; the integration never chooses the
+nearest station automatically.
+
+SMHI provides two observation sources:
+
+| Source | Catalogue description |
+| --- | --- |
+| 8 | One observation per day at 06 UTC |
+| 52 | Minute observations; individual stations may report less often |
+
+The station catalogues can contain the same stations for both sources. When you
+confirm a selection, the integration checks that selected station and source
+for a recent, correctly identified observation. It does not probe every station
+or silently switch to a different station or source. If a source has no recent
+data, the form lets you choose another source or retry. Existing settings stay
+unchanged until the selection succeeds.
+
+The **Observed snow depth** sensor reports approved measured depth in **cm**.
+It describes the selected station, which may be far from home, not a measurement
+at the home's exact location or a forecast. Attributes include `station_name`,
+`station_id`, `distance_km`, `parameter`, `source_url`, `observation_time`,
+`expires_at`, `quality`, `snow_cover` and `stale`. Actual observation time, rather
+than the API metadata update time, controls freshness. Source 52 therefore does
+not guarantee that a particular station has a measurement every minute.
+
+Approved zero remains **0 cm**. The special values for trace or patchy snow are
+shown as unknown numeric depth with `snow_cover` set to `trace` or `patchy`.
+Suspect or unchecked values retain their quality flag and remain unknown numeric
+depth. The integration checks the selected source every 30 minutes. Observations
+36 hours old or older become unavailable, and the card can still show their
+station and timestamp as stale. A source failure affects the observation sensor
+without changing local forecasts or official warnings.
+
+To change the selected station later, enable **Choose another snow depth station**
+in the integration options. Saving unrelated settings leaves the existing source
+in place without fetching the station catalogue. Disabling snow depth stops its
+requests while preserving the station choice, and re-enabling asks you to confirm
+that choice. The sensor's unique ID stays stable when the station changes.
+
+The winter card can show this observation separately from its forecast values by
+setting the optional **Snow depth sensor** in its visual editor:
+
+```yaml
+type: custom:smhi-winter-card
+entity: sensor.your_winter_precipitation_type
+snow_depth_entity: sensor.your_observed_snow_depth
+```
+
+Source: [SMHI observation API](https://opendata.smhi.se/metobs/),
+[daily snow depth](https://opendata-download-metobs.smhi.se/api/version/latest/parameter/8.json),
+[minute snow depth](https://opendata-download-metobs.smhi.se/api/version/latest/parameter/52.json).
+
+### Optional wind gust forecasts
+
+Enable **Enable local wind gust forecasts** in the integration options and
+confirm **Wind forecast location (map)**. The two sensors show the next forecast
+gust and the highest forecast gust at SMHI's actual forecast times in the next
+24 hours. The maximum is unknown when source coverage or any required value is
+missing; it is not calculated from a partial day. The near-term completeness
+check requires hourly coverage. No value is interpolated between forecast times.
+
+The standalone **SMHI Wind Card** accepts either wind sensor and shows the next
+value, the 24-hour maximum with its timestamp, and an expandable 48-hour list.
+Wind values are forecasts, not measured wind or official warnings.
+
+```yaml
+type: custom:smhi-wind-card
+entity: sensor.your_wind_gust_forecast
+```
+
+### Optional precipitation forecasts
+
+Enable **Enable local precipitation forecasts** and confirm its separate map
+point. The two sensors report the probability of at least 0.1 mm precipitation
+and the expected amount in SMHI's **entire stated interval**. The amount uses
+SMHI's ensemble mean and is a water-equivalent amount in mm, including when the
+predicted precipitation is snow. It is not an estimate of snow depth.
+
+Each current or forecast record includes `interval_start` and `valid_time`.
+Intervals can last 1, 3, 6 or 12 hours; a 6-hour amount must not be read as mm per
+hour or as the amount remaining from now. Missing or invalid interval bounds
+leave the affected values unknown. The integration does not prorate intervals,
+sum overlapping periods or infer dry weather from missing data.
+
+The **SMHI Precipitation Card** displays both interval endpoints, probability
+and amount, with an expandable 48-hour list. Select either precipitation sensor.
+
+```yaml
+type: custom:smhi-precipitation-card
+entity: sensor.your_precipitation_probability
+```
+
+Thunder, winter, wind and precipitation forecasts each have an independent map
+point and are off by default. Enabled sources with the same point share a single
+SNOW download containing only the parameters they need. Creation time is checked
+every 15 minutes; cached data is reused while unchanged. Data at least two hours
+old is unavailable, and forecast selection advances locally at actual forecast
+times. Forecast attributes are excluded from recorder history and predicted
+values have no measurement state class.
+
+Source: [SMHI SNOW point forecasts](https://opendata.smhi.se/metfcst/snow1gv1/get_point_forecast),
+[parameter definitions](https://opendata.smhi.se/metfcst/snow1gv1/parameters).
+
+### Optional local weather analysis
+
+Enable **Enable local weather analysis** and confirm **Weather analysis location
+(map)**. Two sensors show SMHI's analysed precipitation and snow amount change
+for the latest analysed hour. This describes a period already in the past; the
+latest analysis can lag current time. Snow amount change is not total snow depth
+or a measured snow-depth observation. Negative snow changes are retained when
+provided by the source, rather than converted to zero.
+
+The **SMHI Analysis Card** shows the latest analysed hour and up to 24 hours of
+history, newest first. Either analysis sensor can supply the card.
+
+```yaml
+type: custom:smhi-analysis-card
+entity: sensor.your_analysed_precipitation_last_hour
+```
+
+This source uses MESAN version 3 and is independent of SNOW forecasts and station
+observations. The integration checks for updates every 30 minutes, caches
+unchanged creation times and considers source data at least three hours old
+unavailable. These are integration freshness policies, not a guarantee of SMHI
+publication times. Source failures do not change official warnings or other
+sources. Missing data remains unknown, and the rolling hourly analysis values
+are not cumulative totals. The large history/current attributes are excluded
+from recorder history and are not assigned measurement statistics.
+
+Source: [SMHI MESAN point analyses](https://opendata.smhi.se/metanalys/mesan2gv3/get_point_analysis),
+[parameter definitions](https://opendata.smhi.se/metanalys/mesan2gv3/parameters).
 
 ### Development checks
 

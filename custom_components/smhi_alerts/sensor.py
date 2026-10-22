@@ -51,7 +51,14 @@ from .const import (
     WARNINGS_URL,
 )
 from .fire_sensor import FIRE_RISK_SENSORS, SmhiFireRiskSensor
+from .mesan_sensor import SmhiMesanPrecipitationSensor, SmhiMesanSnowChangeSensor
+from .precipitation_sensor import (
+    SmhiPrecipitationAmountSensor,
+    SmhiPrecipitationProbabilitySensor,
+)
+from .snow_depth_sensor import SmhiSnowDepthSensor
 from .thunder_sensor import SmhiThunderSensor
+from .wind_sensor import SmhiWindGustSensor, SmhiWindMaxSensor
 from .winter_sensor import (
     SmhiWinterPrecipitationSensor,
     SmhiWinterProbabilitySensor,
@@ -99,6 +106,23 @@ async def async_setup_entry(
                 SmhiWinterTemperatureSensor,
             )
         )
+    if snow_depth_coordinator := entry.runtime_data.snow_depth:
+        entities.append(SmhiSnowDepthSensor(snow_depth_coordinator, entry))
+    for optional, sensor_classes in (
+        (entry.runtime_data.wind, (SmhiWindGustSensor, SmhiWindMaxSensor)),
+        (
+            entry.runtime_data.precipitation,
+            (SmhiPrecipitationProbabilitySensor, SmhiPrecipitationAmountSensor),
+        ),
+        (
+            entry.runtime_data.analysis,
+            (SmhiMesanPrecipitationSensor, SmhiMesanSnowChangeSensor),
+        ),
+    ):
+        if optional is not None:
+            entities.extend(
+                sensor_class(optional, entry) for sensor_class in sensor_classes
+            )
     async_add_entities(entities)
 
     _LOGGER.debug(

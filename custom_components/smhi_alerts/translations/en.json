@@ -19,7 +19,15 @@
                     "thunder_probability_enabled": "Enable local thunderstorm probability",
                     "thunder_probability_location": "Thunderstorm probability location (map)",
                     "winter_enabled": "Enable local winter forecasts",
-                    "winter_location": "Winter forecast location (map)"
+                    "winter_location": "Winter forecast location (map)",
+                    "snow_depth_enabled": "Enable observed snow depth",
+                    "snow_depth_change_station": "Choose another snow depth station",
+                    "wind_enabled": "Enable local wind gust forecasts",
+                    "wind_location": "Wind forecast location (map)",
+                    "precipitation_enabled": "Enable local precipitation forecasts",
+                    "precipitation_location": "Precipitation forecast location (map)",
+                    "analysis_enabled": "Enable local weather analysis",
+                    "analysis_location": "Weather analysis location (map)"
                 },
                 "data_description": {
                     "mode": "Choose to filter by administrative district or by a coordinate + radius.",
@@ -34,7 +42,15 @@
                     "thunder_probability_enabled": "Show thunderstorm probability at the next forecast time and the forecast for the coming 48 hours. This is a local forecast, not an issued warning.",
                     "thunder_probability_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and fire risk location; the warning radius does not apply. Points outside SMHI’s forecast area can have no data.",
                     "winter_enabled": "Show precipitation type, frozen precipitation probability and temperature at the next forecast time, with a forecast for the coming 48 hours. These are local forecasts, not snow depth, road conditions or issued warnings.",
-                    "winter_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and other local forecasts; the warning radius does not apply. Points outside SMHI’s forecast area can have no data."
+                    "winter_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and other local forecasts; the warning radius does not apply. Points outside SMHI’s forecast area can have no data.",
+                    "snow_depth_enabled": "Add snow depth measured at a station you choose in the next step. The station can be far from home and does not describe snow depth at your exact location. No station is selected automatically.",
+                    "snow_depth_change_station": "Open the station list to change or confirm the station and observation source. Other settings can be saved without checking this box.",
+                    "wind_enabled": "Show the next wind gust forecast and the highest forecast value in the next 24 hours. This is a local forecast, not an issued warning.",
+                    "precipitation_enabled": "Show the probability of at least 0.1 mm precipitation and expected precipitation for each entire SMHI interval. Intervals can have different lengths.",
+                    "analysis_enabled": "Show SMHI analysed precipitation and snow amount change in the latest analysed hour, with up to 24 hours of history. This describes past weather, not measured snow depth or a forecast.",
+                    "wind_location": "Choose or confirm the location. This point is independent of the warning filter and other data sources. Points outside SMHI coverage can have no data.",
+                    "precipitation_location": "Choose or confirm the location. This point is independent of the warning filter and other data sources. Points outside SMHI coverage can have no data.",
+                    "analysis_location": "Choose or confirm the location. This point is independent of the warning filter and other data sources. Points outside SMHI coverage can have no data."
                 }
             },
             "reconfigure": {
@@ -55,7 +71,15 @@
                     "thunder_probability_enabled": "Enable local thunderstorm probability",
                     "thunder_probability_location": "Thunderstorm probability location (map)",
                     "winter_enabled": "Enable local winter forecasts",
-                    "winter_location": "Winter forecast location (map)"
+                    "winter_location": "Winter forecast location (map)",
+                    "snow_depth_enabled": "Enable observed snow depth",
+                    "snow_depth_change_station": "Choose another snow depth station",
+                    "wind_enabled": "Enable local wind gust forecasts",
+                    "wind_location": "Wind forecast location (map)",
+                    "precipitation_enabled": "Enable local precipitation forecasts",
+                    "precipitation_location": "Precipitation forecast location (map)",
+                    "analysis_enabled": "Enable local weather analysis",
+                    "analysis_location": "Weather analysis location (map)"
                 },
                 "data_description": {
                     "mode": "Choose to filter by administrative district or by a coordinate + radius.",
@@ -70,18 +94,43 @@
                     "thunder_probability_enabled": "Show thunderstorm probability at the next forecast time and the forecast for the coming 48 hours. This is a local forecast, not an issued warning.",
                     "thunder_probability_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and fire risk location; the warning radius does not apply. Points outside SMHI’s forecast area can have no data.",
                     "winter_enabled": "Show precipitation type, frozen precipitation probability and temperature at the next forecast time, with a forecast for the coming 48 hours. These are local forecasts, not snow depth, road conditions or issued warnings.",
-                    "winter_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and other local forecasts; the warning radius does not apply. Points outside SMHI’s forecast area can have no data."
+                    "winter_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and other local forecasts; the warning radius does not apply. Points outside SMHI’s forecast area can have no data.",
+                    "snow_depth_enabled": "Add snow depth measured at a station you choose in the next step. The station can be far from home and does not describe snow depth at your exact location. No station is selected automatically.",
+                    "snow_depth_change_station": "Open the station list to change or confirm the station and observation source. Other settings can be saved without checking this box.",
+                    "wind_enabled": "Show the next wind gust forecast and the highest forecast value in the next 24 hours. This is a local forecast, not an issued warning.",
+                    "precipitation_enabled": "Show the probability of at least 0.1 mm precipitation and expected precipitation for each entire SMHI interval. Intervals can have different lengths.",
+                    "analysis_enabled": "Show SMHI analysed precipitation and snow amount change in the latest analysed hour, with up to 24 hours of history. This describes past weather, not measured snow depth or a forecast.",
+                    "wind_location": "Choose or confirm the location. This point is independent of the warning filter and other data sources. Points outside SMHI coverage can have no data.",
+                    "precipitation_location": "Choose or confirm the location. This point is independent of the warning filter and other data sources. Points outside SMHI coverage can have no data.",
+                    "analysis_location": "Choose or confirm the location. This point is independent of the warning filter and other data sources. Points outside SMHI coverage can have no data."
                 }
             },
             "reload_notice": {
                 "title": "SMHI Alert",
                 "description": "Setup is complete. Click submit to finish. After setup, reload the browser page once to make sure the dashboard card is available immediately."
+            },
+            "snow_depth": {
+                "title": "Snow depth observation station",
+                "description": "Choose a station and source. Stations are ordered by distance from your Home Assistant home location. Source 8 reports a daily observation at 06 UTC; source 52 is labelled as minute observations in SMHI’s catalogue, but individual stations may report less often. The sensor always shows the actual observation time and source. Only the selected station is checked for recent data before saving. If the selected source has no recent observation, choose another station or source.",
+                "data": {
+                    "snow_depth_station": "Station and observation source"
+                },
+                "data_description": {
+                    "snow_depth_station": "Labels show station name, distance from home and SMHI’s source description. Confirm your selection; the nearest station is never chosen automatically."
+                }
             }
         },
         "error": {
             "invalid_fire_risk_location": "Choose a fire risk location with a valid latitude and longitude.",
             "invalid_thunder_probability_location": "Choose a thunderstorm probability location with a valid latitude and longitude.",
-            "invalid_winter_location": "Choose a winter forecast location with a valid latitude and longitude."
+            "invalid_winter_location": "Choose a winter forecast location with a valid latitude and longitude.",
+            "cannot_connect_snow_depth": "Cannot load snow depth stations from SMHI. Submit again to retry, or cancel and keep the current settings.",
+            "no_snow_depth_stations": "SMHI returned no active snow depth stations. Submit again to retry, or cancel and keep the current settings.",
+            "invalid_snow_depth_station": "Choose a station and source from the available list.",
+            "snow_depth_station_unavailable": "This source has no usable recent observation or could not be checked. Choose another station or source, or retry. Your existing settings have not changed.",
+            "invalid_wind_location": "Choose a location with a valid latitude and longitude.",
+            "invalid_precipitation_location": "Choose a location with a valid latitude and longitude.",
+            "invalid_analysis_location": "Choose a location with a valid latitude and longitude."
         },
         "abort": {
             "entry_not_found": "Configuration entry not found.",
@@ -109,7 +158,15 @@
                     "thunder_probability_enabled": "Enable local thunderstorm probability",
                     "thunder_probability_location": "Thunderstorm probability location (map)",
                     "winter_enabled": "Enable local winter forecasts",
-                    "winter_location": "Winter forecast location (map)"
+                    "winter_location": "Winter forecast location (map)",
+                    "snow_depth_enabled": "Enable observed snow depth",
+                    "snow_depth_change_station": "Choose another snow depth station",
+                    "wind_enabled": "Enable local wind gust forecasts",
+                    "wind_location": "Wind forecast location (map)",
+                    "precipitation_enabled": "Enable local precipitation forecasts",
+                    "precipitation_location": "Precipitation forecast location (map)",
+                    "analysis_enabled": "Enable local weather analysis",
+                    "analysis_location": "Weather analysis location (map)"
                 },
                 "data_description": {
                     "mode": "Choose to filter by administrative district or by a coordinate + radius.",
@@ -124,14 +181,39 @@
                     "thunder_probability_enabled": "Show thunderstorm probability at the next forecast time and the forecast for the coming 48 hours. This is a local forecast, not an issued warning.",
                     "thunder_probability_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and fire risk location; the warning radius does not apply. Points outside SMHI’s forecast area can have no data.",
                     "winter_enabled": "Show precipitation type, frozen precipitation probability and temperature at the next forecast time, with a forecast for the coming 48 hours. These are local forecasts, not snow depth, road conditions or issued warnings.",
-                    "winter_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and other local forecasts; the warning radius does not apply. Points outside SMHI’s forecast area can have no data."
+                    "winter_location": "Choose or confirm the exact forecast point. The initial suggestion is your Home Assistant home location. This point is independent of the warning filter and other local forecasts; the warning radius does not apply. Points outside SMHI’s forecast area can have no data.",
+                    "snow_depth_enabled": "Add snow depth measured at a station you choose in the next step. The station can be far from home and does not describe snow depth at your exact location. No station is selected automatically.",
+                    "snow_depth_change_station": "Open the station list to change or confirm the station and observation source. Other settings can be saved without checking this box.",
+                    "wind_enabled": "Show the next wind gust forecast and the highest forecast value in the next 24 hours. This is a local forecast, not an issued warning.",
+                    "precipitation_enabled": "Show the probability of at least 0.1 mm precipitation and expected precipitation for each entire SMHI interval. Intervals can have different lengths.",
+                    "analysis_enabled": "Show SMHI analysed precipitation and snow amount change in the latest analysed hour, with up to 24 hours of history. This describes past weather, not measured snow depth or a forecast.",
+                    "wind_location": "Choose or confirm the location. This point is independent of the warning filter and other data sources. Points outside SMHI coverage can have no data.",
+                    "precipitation_location": "Choose or confirm the location. This point is independent of the warning filter and other data sources. Points outside SMHI coverage can have no data.",
+                    "analysis_location": "Choose or confirm the location. This point is independent of the warning filter and other data sources. Points outside SMHI coverage can have no data."
+                }
+            },
+            "snow_depth": {
+                "title": "Snow depth observation station",
+                "description": "Choose a station and source. Stations are ordered by distance from your Home Assistant home location. Source 8 reports a daily observation at 06 UTC; source 52 is labelled as minute observations in SMHI’s catalogue, but individual stations may report less often. The sensor always shows the actual observation time and source. Only the selected station is checked for recent data before saving. If the selected source has no recent observation, choose another station or source.",
+                "data": {
+                    "snow_depth_station": "Station and observation source"
+                },
+                "data_description": {
+                    "snow_depth_station": "Labels show station name, distance from home and SMHI’s source description. Confirm your selection; the nearest station is never chosen automatically."
                 }
             }
         },
         "error": {
             "invalid_fire_risk_location": "Choose a fire risk location with a valid latitude and longitude.",
             "invalid_thunder_probability_location": "Choose a thunderstorm probability location with a valid latitude and longitude.",
-            "invalid_winter_location": "Choose a winter forecast location with a valid latitude and longitude."
+            "invalid_winter_location": "Choose a winter forecast location with a valid latitude and longitude.",
+            "cannot_connect_snow_depth": "Cannot load snow depth stations from SMHI. Submit again to retry, or cancel and keep the current settings.",
+            "no_snow_depth_stations": "SMHI returned no active snow depth stations. Submit again to retry, or cancel and keep the current settings.",
+            "invalid_snow_depth_station": "Choose a station and source from the available list.",
+            "snow_depth_station_unavailable": "This source has no usable recent observation or could not be checked. Choose another station or source, or retry. Your existing settings have not changed.",
+            "invalid_wind_location": "Choose a location with a valid latitude and longitude.",
+            "invalid_precipitation_location": "Choose a location with a valid latitude and longitude.",
+            "invalid_analysis_location": "Choose a location with a valid latitude and longitude."
         }
     },
     "entity": {
@@ -195,6 +277,27 @@
             },
             "winter_temperature": {
                 "name": "Winter forecast temperature"
+            },
+            "snow_depth": {
+                "name": "Observed snow depth"
+            },
+            "wind_gust": {
+                "name": "Wind gust forecast"
+            },
+            "wind_gust_max_24h": {
+                "name": "Highest forecast gust, next 24 hours"
+            },
+            "precipitation_probability": {
+                "name": "Precipitation probability"
+            },
+            "precipitation_amount": {
+                "name": "Precipitation amount forecast"
+            },
+            "analysed_precipitation": {
+                "name": "Analysed precipitation, last hour"
+            },
+            "analysed_snow_change": {
+                "name": "Analysed snow amount change, last hour"
             }
         }
     }
