@@ -220,7 +220,7 @@ assert.equal(event.detail.config.show_forecast, false);
 def test_separate_card_registration_stubs_and_editor_events() -> None:
     run_card("""
 assert.deepEqual(window.customCards.map((item) => item.type).sort(),
-  ['smhi-alert-card', 'smhi-fire-risk-card', 'smhi-thunder-card']);
+  ['smhi-alert-card', 'smhi-fire-risk-card', 'smhi-thunder-card', 'smhi-winter-card']);
 assert.deepEqual(Card.getStubConfig(card.hass), { entity: 'sensor.thunder' });
 const fireCard = elements.get('smhi-fire-risk-card');
 assert.deepEqual(fireCard.getStubConfig(card.hass), { entity: '' });
@@ -300,7 +300,9 @@ assert.equal(cleared, 19);
 """)
 
 
-@pytest.mark.parametrize("card_type", ["smhi-fire-risk-card", "smhi-thunder-card"])
+@pytest.mark.parametrize(
+    "card_type", ["smhi-fire-risk-card", "smhi-thunder-card", "smhi-winter-card"]
+)
 def test_user_clock_format_overrides_language_and_handles_midnight(
     card_type: str,
 ) -> None:
@@ -325,7 +327,9 @@ assert.match(forecastCard._formatDate('2026-09-04T17:00:00Z'), /7:00 PM/);
 """)
 
 
-@pytest.mark.parametrize("card_type", ["smhi-fire-risk-card", "smhi-thunder-card"])
+@pytest.mark.parametrize(
+    "card_type", ["smhi-fire-risk-card", "smhi-thunder-card", "smhi-winter-card"]
+)
 def test_profile_clock_changes_trigger_rendering_without_new_sensor_data(
     card_type: str,
 ) -> None:

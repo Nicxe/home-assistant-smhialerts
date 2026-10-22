@@ -6,7 +6,7 @@ from time import monotonic
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import aiohttp_client, entity_registry as er
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
@@ -25,6 +25,8 @@ from .const import (
     CONF_RADIUS_KM,
     CONF_THUNDER_PROBABILITY_ENABLED,
     CONF_THUNDER_PROBABILITY_LOCATION,
+    CONF_WINTER_ENABLED,
+    CONF_WINTER_LOCATION,
     DEFAULT_EXCLUDE_SEA,
     DEFAULT_EXCLUDED_MESSAGE_TYPES,
     DEFAULT_FIRE_RISK_ENABLED,
@@ -35,13 +37,16 @@ from .const import (
     DEFAULT_MODE,
     DEFAULT_RADIUS_KM,
     DEFAULT_THUNDER_PROBABILITY_ENABLED,
+    DEFAULT_WINTER_ENABLED,
     DOMAIN,
 )
 from .fire_risk import SmhiFireRiskCoordinator
 from .frontend import async_setup_frontend
 from .runtime_data import SmhiAlertsRuntimeData
 from .sensor import SmhiAlertCoordinator
-from .thunder import SmhiThunderCoordinator
+from .snow import SmhiSnowClient
+from .thunder import THUNDER_UPDATE_INTERVAL, SmhiThunderCoordinator
+from .winter import WINTER_PARAMETERS, SmhiWinterCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,6 +70,12 @@ def _thunder_settings(entry: ConfigEntry) -> tuple[bool, float | None, float | N
         CONF_THUNDER_PROBABILITY_ENABLED,
         CONF_THUNDER_PROBABILITY_LOCATION,
         DEFAULT_THUNDER_PROBABILITY_ENABLED,
+    )
+
+
+def _winter_settings(entry: ConfigEntry) -> tuple[bool, float | None, float | None]:
+    return _point_forecast_settings(
+        entry, CONF_WINTER_ENABLED, CONF_WINTER_LOCATION, DEFAULT_WINTER_ENABLED
     )
 
 
@@ -134,8 +145,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     fire_settings = _fire_risk_settings(entry)
     thunder_settings = _thunder_settings(entry)
+    winter_settings = _winter_settings(entry)
     fire_coordinator = None
     thunder_coordinator = None
+    winter_coordinator = None
+    shared_snow_client = None
+    if (
+        thunder_settings[0]
+        and winter_settings[0]
+        and thunder_settings[1] is not None
+        and thunder_settings[2] is not None
+        and thunder_settings[1:] == winter_settings[1:]
+    ):
+        shared_snow_client = SmhiSnowClient(
+            aiohttp_client.async_get_clientsession(hass),
+            thunder_settings[1],
+            thunder_settings[2],
+            parameters=("thunderstorm_probability", *WINTER_PARAMETERS),
+            cache_interval=THUNDER_UPDATE_INTERVAL,
+        )
     enabled, latitude, longitude = fire_settings
     if enabled and latitude is not None and longitude is not None:
         fire_coordinator = SmhiFireRiskCoordinator(hass, entry, latitude, longitude)
@@ -145,17 +173,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         )
     enabled, latitude, longitude = thunder_settings
     if enabled and latitude is not None and longitude is not None:
-        thunder_coordinator = SmhiThunderCoordinator(hass, entry, latitude, longitude)
+        thunder_coordinator = SmhiThunderCoordinator(
+            hass, entry, latitude, longitude, client=shared_snow_client
+        )
     elif enabled:
         _LOGGER.warning(
             "Thunderstorm probability requires a valid location; choose a location in integration options"
+        )
+    enabled, latitude, longitude = winter_settings
+    if enabled and latitude is not None and longitude is not None:
+        winter_coordinator = SmhiWinterCoordinator(
+            hass, entry, latitude, longitude, client=shared_snow_client
+        )
+    elif enabled:
+        _LOGGER.warning(
+            "Winter forecasts require a valid location; choose a location in integration options"
         )
     # Optional sources refresh independently and retry through their entity
     # subscriptions. Their availability never controls the issued warnings.
     await asyncio.gather(
         *(
             optional.async_refresh()
-            for optional in (fire_coordinator, thunder_coordinator)
+            for optional in (fire_coordinator, thunder_coordinator, winter_coordinator)
             if optional is not None
         )
     )
@@ -165,6 +204,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         fire_risk_settings=fire_settings,
         thunder=thunder_coordinator,
         thunder_settings=thunder_settings,
+        winter=winter_coordinator,
+        winter_settings=winter_settings,
     )
 
     async def _options_updated(hass: HomeAssistant, updated_entry: ConfigEntry):
@@ -176,6 +217,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             != updated_entry.runtime_data.fire_risk_settings
             or _thunder_settings(updated_entry)
             != updated_entry.runtime_data.thunder_settings
+            or _winter_settings(updated_entry)
+            != updated_entry.runtime_data.winter_settings
         ):
             await hass.config_entries.async_reload(updated_entry.entry_id)
             return

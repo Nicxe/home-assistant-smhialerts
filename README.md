@@ -1,13 +1,13 @@
 # SMHI Alerts
 
-[![Buy me a Coffee](https://img.shields.io/badge/Support-Buy%20me%20a%20coffee-fdd734?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/NiklasV) ![GitHub Release](https://img.shields.io/github/v/release/nicxe/home-assistant-smhialerts) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/nicxe/home-assistant-smhialerts/latest/total)
+[![GitHub Sponsors](https://img.shields.io/badge/Support-GitHub%20Sponsors-30363d?logo=github)](https://github.com/sponsors/Nicxe) [![Buy me a Coffee](https://img.shields.io/badge/Alternative-Buy%20me%20a%20coffee-fdd734?logo=buy-me-a-coffee)](https://buymeacoffee.com/niklasv) ![GitHub Release](https://img.shields.io/github/v/release/nicxe/home-assistant-smhialerts) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/nicxe/home-assistant-smhialerts/latest/total)
 
 ## Overview
 SMHI Alerts brings weather warnings and risk messages from the Swedish Meteorological and Hydrological Institute (SMHI) into Home Assistant.
 
 This repository now contains both:
 - The Home Assistant integration (`smhi_alerts`)
-- Three independent Lovelace cards for official alerts, local fire risk and thunderstorm probability (bundled in `smhi-alert-card.js`)
+- Four independent Lovelace cards for official alerts, local fire risk, thunderstorm probability and local winter forecasts (bundled in `smhi-alert-card.js`)
 
 ## Installation
 
@@ -22,7 +22,7 @@ You can also add the repository manually in HACS as type **Integration**.
 3. Restart Home Assistant.
 
 ### Dashboard card installation
-All three cards are bundled with this integration and use the same resource.
+All four cards are bundled with this integration and use the same resource.
 
 When the integration starts, it automatically:
 - syncs the bundled card to `config/www/smhi-alert-card.js`
@@ -35,13 +35,14 @@ If you have just installed or updated, reload the browser once to ensure the lat
 1. Open your dashboard.
 2. Select **Edit dashboard**.
 3. Add a new card.
-4. Choose **SMHI Alert Card**, **SMHI Fire Risk Card** or **SMHI Thunder Card**.
+4. Choose **SMHI Alert Card**, **SMHI Fire Risk Card**, **SMHI Thunder Card** or **SMHI Winter Card**.
 5. Select the sensor for that card in its visual editor.
 
 Manual card types:
 - `custom:smhi-alert-card` — official SMHI warnings and messages
 - `custom:smhi-fire-risk-card` — local fire risk and daily forecasts
 - `custom:smhi-thunder-card` — local thunderstorm probability and forecast times
+- `custom:smhi-winter-card` — local precipitation type, frozen precipitation probability and temperature
 
 ### Map configuration
 Enable **Show map (geometry)** in the card editor to display the affected warning area. The integration option **Include geometry (map polygons)** must also be enabled for the selected SMHI Alerts entry.
@@ -153,7 +154,7 @@ type: custom:smhi-thunder-card
 entity: sensor.your_thunderstorm_probability
 ```
 
-Both forecast cards have a visual editor with **Sensor**, **Title**, **Show forecast**
+All forecast cards have a visual editor with **Sensor**, **Title**, **Show forecast**
 and **Expand forecast by default**. These optional settings are also available in
 YAML as `title`, `show_forecast` (default `true`) and `forecast_expanded` (default
 `false`). Card text follows the Home Assistant display language, with Swedish
@@ -182,6 +183,65 @@ retained at their forecast time rather than replaced by another period. The
 large `current` and `forecast` attributes are excluded from recorder history.
 No observation state class or long-term measurement statistics are assigned to
 this predicted value.
+
+Source: [SMHI SNOW point forecasts](https://opendata.smhi.se/metfcst/snow1gv1/get_point_forecast),
+[parameter definitions](https://opendata.smhi.se/metfcst/snow1gv1/parameters).
+
+### Optional local winter forecasts
+
+Open **Settings > Devices & Services > SMHI Alerts > Configure**. Enable
+**Enable local winter forecasts** and confirm **Winter forecast location (map)**.
+The feature is off by default and needs no API key. Its location is independent
+of the warning district or radius, fire risk point and thunderstorm point.
+
+The option adds three sensors to the existing device:
+
+| Sensor | Value |
+| --- | --- |
+| Winter precipitation type | SMHI's predicted type, including snow, wet snow, rain and snow, freezing rain and freezing drizzle |
+| Frozen precipitation probability | SMHI's probability of frozen precipitation, converted from a fraction to percent |
+| Winter forecast temperature | SMHI's air temperature at 2 metres height, in °C |
+
+All three describe the **next forecast time**, identified by `valid_time`, and
+include the following 48 hours of available forecast times. They are local model
+forecasts, not measured snow depth, a road condition assessment or issued
+warnings. A forecast of freezing rain is distinct from the broader probability
+of frozen precipitation. This feature does not change warning severity, counts
+or the active warning binary sensor.
+
+Add **SMHI Winter Card** from the dashboard card picker and select any of the
+three winter sensors. This standalone card shows the three values with their
+exact forecast time and an expandable forecast list. It can be used independently
+of the other cards and requires no additional dashboard resource.
+
+```yaml
+type: custom:smhi-winter-card
+entity: sensor.your_winter_precipitation_type
+```
+
+The card supports `title`, `show_forecast` (default `true`) and
+`forecast_expanded` (default `false`), also available in its visual editor. Card
+text follows the Home Assistant display language, with Swedish and English
+translations, and forecast times follow the user's time and time zone preferences.
+
+The integration checks SNOW's `createdtime` every 15 minutes and reuses cached
+point data while its creation time is unchanged. When winter and thunderstorm
+forecasts use the same point in an entry, they share the point download and
+cache. Different points retain independent data. The next forecast time advances
+locally without another download. Source data two hours old or older is
+unavailable; an API failure affects the local forecast source while official
+warnings continue working. Turning the option off stops its downloads unless
+the same source is still needed by thunderstorm probability. Sensor unique IDs
+remain stable when the location changes or the option is disabled and re-enabled.
+
+Missing or invalid values remain `unknown`, while zero temperature, zero
+probability and the explicit **No precipitation** type remain valid. Attributes
+include `created_time`, `reference_time`, `valid_time`, `current`, `forecast`, the
+returned grid point and `data_source_url`. Each forecast item contains
+`valid_time`, `precipitation_type`, `precipitation_type_code`, `frozen_probability`
+and `temperature`. The large `current` and `forecast` attributes are excluded
+from recorder history. Forecast values do not receive an observation state class
+or long-term measurement statistics.
 
 Source: [SMHI SNOW point forecasts](https://opendata.smhi.se/metfcst/snow1gv1/get_point_forecast),
 [parameter definitions](https://opendata.smhi.se/metfcst/snow1gv1/parameters).
