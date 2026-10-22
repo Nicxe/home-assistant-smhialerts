@@ -24,6 +24,7 @@ from custom_components.smhi_alerts.const import (
     CONF_MESSAGE_TYPES,
     CONF_MODE,
     CONF_RADIUS_KM,
+    CONF_SNOW_DEPTH_ENABLED,
     CONF_THUNDER_PROBABILITY_ENABLED,
     CONF_THUNDER_PROBABILITY_LOCATION,
     CONF_WINTER_ENABLED,
@@ -35,6 +36,9 @@ pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 FIRE_POINT = {"latitude": 58, "longitude": 16}
 THUNDER_POINT = {"latitude": 57.7, "longitude": 11.97}
 WARNING_OPTIONS = {
+    "wind_enabled": False,
+    "precipitation_enabled": False,
+    "analysis_enabled": False,
     CONF_MODE: "district",
     CONF_DISTRICT: "14",
     CONF_LANGUAGE: "sv",
@@ -173,7 +177,11 @@ async def test_create_flow_suggests_location_and_creates_independent_forecasts(h
     assert result["step_id"] == "reload_notice"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == {**submitted, CONF_WINTER_ENABLED: False}
+    assert result["data"] == {
+        **submitted,
+        CONF_WINTER_ENABLED: False,
+        CONF_SNOW_DEPTH_ENABLED: False,
+    }
     await hass.async_block_till_done()
 
 
@@ -230,6 +238,7 @@ async def test_options_toggle_thunder_preserves_fire_and_warning_choices(
         **existing,
         CONF_THUNDER_PROBABILITY_ENABLED: thunder_enabled,
         CONF_WINTER_ENABLED: False,
+        CONF_SNOW_DEPTH_ENABLED: False,
     }
 
 
@@ -279,6 +288,7 @@ async def test_older_options_or_disabling_thunder_keeps_both_saved_points(
         **current,
         **updates,
         CONF_WINTER_ENABLED: False,
+        CONF_SNOW_DEPTH_ENABLED: False,
     }
 
 
@@ -316,6 +326,7 @@ async def test_reconfigure_can_change_thunder_point_without_changing_fire_or_war
         **existing,
         CONF_THUNDER_PROBABILITY_LOCATION: new_point,
         CONF_WINTER_ENABLED: False,
+        CONF_SNOW_DEPTH_ENABLED: False,
     }
     assert entry.options == entry.data
 

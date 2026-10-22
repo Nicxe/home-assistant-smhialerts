@@ -1,16 +1,20 @@
 from collections.abc import Mapping
 import math
 
-from aiohttp import ClientTimeout
+from aiohttp import ClientError, ClientTimeout
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import aiohttp_client
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import selector
+from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
 from .const import (
     AREAS_URL,
+    CONF_ANALYSIS_ENABLED,
+    CONF_ANALYSIS_LOCATION,
     CONF_DISTRICT,
     CONF_EXCLUDE_SEA,
     CONF_EXCLUDED_MESSAGE_TYPES,
@@ -24,11 +28,20 @@ from .const import (
     CONF_LONGITUDE,
     CONF_MESSAGE_TYPES,
     CONF_MODE,
+    CONF_PRECIPITATION_ENABLED,
+    CONF_PRECIPITATION_LOCATION,
     CONF_RADIUS_KM,
+    CONF_SNOW_DEPTH_CHANGE_STATION,
+    CONF_SNOW_DEPTH_ENABLED,
+    CONF_SNOW_DEPTH_PARAMETER,
+    CONF_SNOW_DEPTH_STATION,
     CONF_THUNDER_PROBABILITY_ENABLED,
     CONF_THUNDER_PROBABILITY_LOCATION,
+    CONF_WIND_ENABLED,
+    CONF_WIND_LOCATION,
     CONF_WINTER_ENABLED,
     CONF_WINTER_LOCATION,
+    DEFAULT_ANALYSIS_ENABLED,
     DEFAULT_EXCLUDE_SEA,
     DEFAULT_EXCLUDED_MESSAGE_TYPES,
     DEFAULT_FIRE_RISK_ENABLED,
@@ -37,8 +50,12 @@ from .const import (
     DEFAULT_LANGUAGE,
     DEFAULT_MESSAGE_TYPES,
     DEFAULT_MODE,
+    DEFAULT_PRECIPITATION_ENABLED,
     DEFAULT_RADIUS_KM,
+    DEFAULT_SNOW_DEPTH_ENABLED,
+    DEFAULT_SNOW_DEPTH_PARAMETER,
     DEFAULT_THUNDER_PROBABILITY_ENABLED,
+    DEFAULT_WIND_ENABLED,
     DEFAULT_WINTER_ENABLED,
     DISTRICTS,
     DOMAIN,
@@ -86,6 +103,13 @@ def _location_from_input(user_input, default_latitude, default_longitude):
 
 
 _LOCAL_FORECAST_OPTIONS = (
+    (CONF_WIND_ENABLED, CONF_WIND_LOCATION, DEFAULT_WIND_ENABLED),
+    (
+        CONF_PRECIPITATION_ENABLED,
+        CONF_PRECIPITATION_LOCATION,
+        DEFAULT_PRECIPITATION_ENABLED,
+    ),
+    (CONF_ANALYSIS_ENABLED, CONF_ANALYSIS_LOCATION, DEFAULT_ANALYSIS_ENABLED),
     (CONF_FIRE_RISK_ENABLED, CONF_FIRE_RISK_LOCATION, DEFAULT_FIRE_RISK_ENABLED),
     (
         CONF_THUNDER_PROBABILITY_ENABLED,
@@ -152,12 +176,27 @@ def _local_forecast_schema(hass, entry=None):
                 },
             )
         ] = selector({"location": {}})
+    schema[
+        vol.Required(
+            CONF_SNOW_DEPTH_ENABLED,
+            default=current.get(CONF_SNOW_DEPTH_ENABLED, DEFAULT_SNOW_DEPTH_ENABLED),
+        )
+    ] = cv.boolean
+    if current.get(CONF_SNOW_DEPTH_STATION):
+        schema[vol.Optional(CONF_SNOW_DEPTH_CHANGE_STATION, default=False)] = cv.boolean
     return schema
 
 
 def _preserve_local_forecast_options(user_input, entry):
     """Keep each saved source's settings for older clients and when disabling it."""
     current = {**entry.data, **entry.options}
+    user_input.setdefault(
+        CONF_SNOW_DEPTH_ENABLED,
+        current.get(CONF_SNOW_DEPTH_ENABLED, DEFAULT_SNOW_DEPTH_ENABLED),
+    )
+    for key in (CONF_SNOW_DEPTH_STATION, CONF_SNOW_DEPTH_PARAMETER):
+        if key not in user_input and key in current:
+            user_input[key] = current[key]
     for enabled_key, location_key, default in _LOCAL_FORECAST_OPTIONS:
         user_input.setdefault(enabled_key, current.get(enabled_key, default))
         if location_key not in user_input and location_key in current:
@@ -178,6 +217,15 @@ def _build_entry_data(user_input, default_latitude, default_longitude):
         CONF_MESSAGE_TYPES: user_input.get(CONF_MESSAGE_TYPES, DEFAULT_MESSAGE_TYPES),
         CONF_EXCLUDE_SEA: user_input.get(CONF_EXCLUDE_SEA, DEFAULT_EXCLUDE_SEA),
     }
+
+    data[CONF_SNOW_DEPTH_ENABLED] = user_input.get(
+        CONF_SNOW_DEPTH_ENABLED, DEFAULT_SNOW_DEPTH_ENABLED
+    )
+    if station := user_input.get(CONF_SNOW_DEPTH_STATION):
+        data[CONF_SNOW_DEPTH_STATION] = station
+        data[CONF_SNOW_DEPTH_PARAMETER] = user_input.get(
+            CONF_SNOW_DEPTH_PARAMETER, DEFAULT_SNOW_DEPTH_PARAMETER
+        )
 
     for enabled_key, location_key, default in _LOCAL_FORECAST_OPTIONS:
         data[enabled_key] = user_input.get(enabled_key, default)
@@ -225,7 +273,122 @@ async def _async_get_district_options(hass):
     )
 
 
-class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+def _needs_snow_depth_selection(user_input, entry=None):
+    """Only ask for a station when enabling or explicitly changing its source."""
+    if not user_input.get(CONF_SNOW_DEPTH_ENABLED, DEFAULT_SNOW_DEPTH_ENABLED):
+        return False
+    current = {**entry.data, **entry.options} if entry else {}
+    if (
+        user_input.get(CONF_SNOW_DEPTH_CHANGE_STATION, False)
+        or not current.get(CONF_SNOW_DEPTH_ENABLED, False)
+        or not current.get(CONF_SNOW_DEPTH_STATION)
+    ):
+        return True
+    return any(
+        user_input.get(key) != current.get(key)
+        for key in (CONF_SNOW_DEPTH_STATION, CONF_SNOW_DEPTH_PARAMETER)
+    )
+
+
+async def _async_get_snow_depth_stations(hass):
+    """Discover source and station metadata only for an explicit selection."""
+    from .snow_depth import async_get_snow_stations
+
+    return await async_get_snow_stations(
+        aiohttp_client.async_get_clientsession(hass),
+        hass.config.latitude,
+        hass.config.longitude,
+    )
+
+
+async def _async_validate_snow_depth_station(hass, station_id, parameter):
+    """Probe only the selected source; catalogue availability is insufficient."""
+    from .snow_depth import SmhiSnowDepthClient
+
+    client = SmhiSnowDepthClient(
+        aiohttp_client.async_get_clientsession(hass),
+        station_id,
+        parameter,
+        latitude=hass.config.latitude,
+        longitude=hass.config.longitude,
+    )
+    await client.async_get_observation(dt_util.utcnow())
+
+
+class SnowDepthSelectionMixin:
+    """Explicit station selection shared by setup, reconfigure and options."""
+
+    async def _async_start_snow_depth_selection(self, data, finish):
+        self._snow_depth_pending_data = dict(data)
+        self._snow_depth_finish = finish
+        self._snow_depth_stations = None
+        return await self.async_step_snow_depth()
+
+    async def async_step_snow_depth(self, user_input=None):
+        errors = {}
+        stations = self._snow_depth_stations
+        if stations is None:
+            try:
+                stations = await _async_get_snow_depth_stations(self.hass)
+            except (ClientError, TimeoutError, UpdateFailed, ValueError):
+                errors["base"] = "cannot_connect_snow_depth"
+            else:
+                if stations:
+                    self._snow_depth_stations = stations
+                else:
+                    errors["base"] = "no_snow_depth_stations"
+        choices = {
+            f"{station['parameter']}:{station['station_id']}": station
+            for station in stations or []
+        }
+        if user_input is not None and choices and CONF_SNOW_DEPTH_STATION in user_input:
+            selected = user_input.get(CONF_SNOW_DEPTH_STATION)
+            if selected not in choices:
+                errors[CONF_SNOW_DEPTH_STATION] = "invalid_snow_depth_station"
+            else:
+                station = choices[selected]
+                try:
+                    await _async_validate_snow_depth_station(
+                        self.hass, station["station_id"], station["parameter"]
+                    )
+                except (ClientError, TimeoutError, UpdateFailed, ValueError):
+                    errors[CONF_SNOW_DEPTH_STATION] = "snow_depth_station_unavailable"
+                else:
+                    data = dict(self._snow_depth_pending_data)
+                    data[CONF_SNOW_DEPTH_STATION] = station["station_id"]
+                    data[CONF_SNOW_DEPTH_PARAMETER] = station["parameter"]
+                    return await self._snow_depth_finish(data)
+        schema = {}
+        if choices:
+            options = []
+            for value, station in choices.items():
+                distance = station.get("distance_km")
+                distance_label = (
+                    f" · {distance:.1f} km"
+                    if isinstance(distance, (int, float))
+                    else ""
+                )
+                source_label = station.get("parameter_summary") or station["parameter"]
+                options.append(
+                    {
+                        "value": value,
+                        "label": f"{station['station_name']}{distance_label} · {source_label}",
+                    }
+                )
+            pending = self._snow_depth_pending_data
+            selected = f"{pending.get(CONF_SNOW_DEPTH_PARAMETER, DEFAULT_SNOW_DEPTH_PARAMETER)}:{pending.get(CONF_SNOW_DEPTH_STATION, '')}"
+            description = {"suggested_value": selected} if selected in choices else {}
+            schema[vol.Required(CONF_SNOW_DEPTH_STATION, description=description)] = (
+                selector({"select": {"options": options, "mode": "dropdown"}})
+            )
+        return self.async_show_form(
+            step_id="snow_depth", data_schema=vol.Schema(schema), errors=errors
+        )
+
+
+class SmhiAlertsConfigFlow(
+    SnowDepthSelectionMixin, config_entries.ConfigFlow, domain=DOMAIN
+):
     """Handle a config flow for SMHI Alerts."""
 
     VERSION = 4
@@ -255,6 +418,24 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._pending_entry_title = None
         self._pending_entry_data = None
         return self.async_create_entry(title=title, data=data)
+
+    async def _async_finish_reconfigure(self, new_data):
+        entry = self.hass.config_entries.async_get_entry(self.context.get("entry_id"))
+        if entry is None:
+            return self.async_abort(reason="entry_not_found")
+        if new_data[CONF_MODE] == "district":
+            new_title = f"SMHI Alert ({DISTRICTS.get(new_data[CONF_DISTRICT], new_data[CONF_DISTRICT])})"
+        else:
+            new_title = f"SMHI Alert ({round(new_data[CONF_LATITUDE], 4)},{round(new_data[CONF_LONGITUDE], 4)} @ {new_data[CONF_RADIUS_KM]}km)"
+        new_options = dict(new_data)
+        new_options.pop(CONF_EXCLUDED_MESSAGE_TYPES, None)
+        return self.async_update_reload_and_abort(
+            entry=entry,
+            data=new_data,
+            options=new_options,
+            reason="reconfigured_successful",
+            title=new_title,
+        )
 
     async def async_step_reconfigure(self, user_input=None):
         """Handle reconfigure initiated from the UI on an existing entry."""
@@ -313,21 +494,11 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             new_data = _build_entry_data(
                 user_input, self.hass.config.latitude, self.hass.config.longitude
             )
-            if user_input[CONF_MODE] == "district":
-                new_title = f"SMHI Alert ({DISTRICTS.get(new_data[CONF_DISTRICT], new_data[CONF_DISTRICT])})"
-            else:
-                new_title = f"SMHI Alert ({round(new_data[CONF_LATITUDE], 4)},{round(new_data[CONF_LONGITUDE], 4)} @ {new_data[CONF_RADIUS_KM]}km)"
-
-            new_options = dict(new_data)
-            new_options.pop(CONF_EXCLUDED_MESSAGE_TYPES, None)
-
-            return self.async_update_reload_and_abort(
-                entry=entry,
-                data=new_data,
-                options=new_options,
-                reason="reconfigured_successful",
-                title=new_title,
-            )
+            if _needs_snow_depth_selection(user_input, entry):
+                return await self._async_start_snow_depth_selection(
+                    new_data, self._async_finish_reconfigure
+                )
+            return await self._async_finish_reconfigure(new_data)
 
         district_options = await _async_get_district_options(self.hass)
 
@@ -419,6 +590,11 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 self._abort_if_unique_id_configured()
                 title = f"SMHI Alert ({round(lat, 4)},{round(lon, 4)} @ {radius}km)"
+            if _needs_snow_depth_selection(user_input):
+                self._pending_entry_title = title
+                return await self._async_start_snow_depth_selection(
+                    entry_data, self._async_finish_snow_depth_setup
+                )
             return self._show_reload_notice_step(title=title, data=entry_data)
 
         district_options = await _async_get_district_options(self.hass)
@@ -494,14 +670,20 @@ class SmhiAlertsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def _async_finish_snow_depth_setup(self, data):
+        return self._show_reload_notice_step(title=self._pending_entry_title, data=data)
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
         return SmhiAlertsOptionsFlowHandler()
 
 
-class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
+class SmhiAlertsOptionsFlowHandler(SnowDepthSelectionMixin, config_entries.OptionsFlow):
     """Handle SMHI Alerts options."""
+
+    async def _async_finish_snow_depth_options(self, data):
+        return self.async_create_entry(title="", data=data)
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
@@ -517,6 +699,10 @@ class SmhiAlertsOptionsFlowHandler(config_entries.OptionsFlow):
             data = _build_entry_data(
                 user_input, self.hass.config.latitude, self.hass.config.longitude
             )
+            if _needs_snow_depth_selection(user_input, self.config_entry):
+                return await self._async_start_snow_depth_selection(
+                    data, self._async_finish_snow_depth_options
+                )
             return self.async_create_entry(title="", data=data)
 
         district_options = await _async_get_district_options(self.hass)

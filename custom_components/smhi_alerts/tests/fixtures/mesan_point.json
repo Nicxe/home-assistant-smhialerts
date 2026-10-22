@@ -1,0 +1,181 @@
+{
+  "createdTime": "2026-10-22T15:40:37Z",
+  "referenceTime": "2026-10-22T15:00:00Z",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      11.99605,
+      58.008376
+    ]
+  },
+  "timeSeries": [
+    {
+      "time": "2026-10-22T15:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.01,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T14:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.05,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T13:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.13,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T12:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.26,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T11:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.31,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T10:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.51,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T09:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.5,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T08:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.7,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T07:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.51,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T06:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.08,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T05:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.0,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T04:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.0,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T03:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.0,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T02:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.0,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T01:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.0,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-22T00:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.0,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-21T23:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.0,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-21T22:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.35,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-21T21:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.86,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-21T20:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.79,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-21T19:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.75,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-21T18:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.22,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-21T17:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.0,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    },
+    {
+      "time": "2026-10-21T16:00:00Z",
+      "data": {
+        "precipitation_amount_last_1_hours": 0.02,
+        "change_over_time_in_surface_snow_amount_1_hours": 0.0
+      }
+    }
+  ]
+}

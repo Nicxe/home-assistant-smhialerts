@@ -19,7 +19,15 @@
                     "thunder_probability_enabled": "Aktivera lokal åsksannolikhet",
                     "thunder_probability_location": "Åsksannolikhetens position (karta)",
                     "winter_enabled": "Aktivera lokala vinterprognoser",
-                    "winter_location": "Plats för vinterprognos (karta)"
+                    "winter_location": "Plats för vinterprognos (karta)",
+                    "snow_depth_enabled": "Aktivera observerat snödjup",
+                    "snow_depth_change_station": "Välj en annan snödjupsstation",
+                    "wind_enabled": "Aktivera lokala vindbyprognoser",
+                    "wind_location": "Plats för vindbyprognos (karta)",
+                    "precipitation_enabled": "Aktivera lokala nederbördsprognoser",
+                    "precipitation_location": "Plats för nederbördsprognos (karta)",
+                    "analysis_enabled": "Aktivera lokal väderanalys",
+                    "analysis_location": "Plats för väderanalys (karta)"
                 },
                 "data_description": {
                     "mode": "Välj att filtrera på administrativt distrikt eller på koordinat + radie.",
@@ -34,7 +42,15 @@
                     "thunder_probability_enabled": "Visa åsksannolikhet vid nästa prognostid och prognosen för kommande 48 timmar. Detta är en lokal prognos, inte en utfärdad varning.",
                     "thunder_probability_location": "Välj eller bekräfta den exakta prognospunkten. Det första förslaget är Home Assistants hemposition. Punkten är oberoende av varningsfiltret och brandriskens position; varningsradien används inte. Punkter utanför SMHI:s prognosområde kan sakna data.",
                     "winter_enabled": "Visa nederbördstyp, sannolikhet för frusen nederbörd och temperatur vid nästa prognostid, med prognos för kommande 48 timmar. Det är lokala prognoser, inte snödjup, väglag eller utfärdade varningar.",
-                    "winter_location": "Välj eller bekräfta den exakta prognospunkten. Förslaget är din hemposition i Home Assistant. Punkten är oberoende av varningsfiltret och övriga lokala prognoser; varningsradien gäller inte. Punkter utanför SMHI:s prognosområde kan sakna data."
+                    "winter_location": "Välj eller bekräfta den exakta prognospunkten. Förslaget är din hemposition i Home Assistant. Punkten är oberoende av varningsfiltret och övriga lokala prognoser; varningsradien gäller inte. Punkter utanför SMHI:s prognosområde kan sakna data.",
+                    "snow_depth_enabled": "Lägg till snödjup uppmätt vid en station som du väljer i nästa steg. Stationen kan ligga långt från hemmet och beskriver inte snödjupet på din exakta plats. Ingen station väljs automatiskt.",
+                    "snow_depth_change_station": "Öppna stationslistan för att ändra eller bekräfta station och observationskälla. Övriga inställningar kan sparas utan att markera rutan.",
+                    "wind_enabled": "Visa vindbyprognos för nästa prognostid och högsta prognosvärdet under kommande 24 timmar. Detta är en lokal prognos, inte en utfärdad varning.",
+                    "precipitation_enabled": "Visa sannolikhet för minst 0,1 mm nederbörd och förväntad nederbördsmängd för SMHI:s hela angivna tidsintervall. Intervallen kan vara olika långa.",
+                    "analysis_enabled": "Visa SMHI:s analyserade nederbörd och snömängdsförändring under den senaste analyserade timmen, med upp till 24 timmars historik. Detta är analys av passerat väder, inte uppmätt snödjup eller en prognos.",
+                    "wind_location": "Välj eller bekräfta platsen. Denna punkt är oberoende av varningsfiltret och övriga datakällor. Utanför SMHI:s täckningsområde kan data saknas.",
+                    "precipitation_location": "Välj eller bekräfta platsen. Denna punkt är oberoende av varningsfiltret och övriga datakällor. Utanför SMHI:s täckningsområde kan data saknas.",
+                    "analysis_location": "Välj eller bekräfta platsen. Denna punkt är oberoende av varningsfiltret och övriga datakällor. Utanför SMHI:s täckningsområde kan data saknas."
                 }
             },
             "reconfigure": {
@@ -55,7 +71,15 @@
                     "thunder_probability_enabled": "Aktivera lokal åsksannolikhet",
                     "thunder_probability_location": "Åsksannolikhetens position (karta)",
                     "winter_enabled": "Aktivera lokala vinterprognoser",
-                    "winter_location": "Plats för vinterprognos (karta)"
+                    "winter_location": "Plats för vinterprognos (karta)",
+                    "snow_depth_enabled": "Aktivera observerat snödjup",
+                    "snow_depth_change_station": "Välj en annan snödjupsstation",
+                    "wind_enabled": "Aktivera lokala vindbyprognoser",
+                    "wind_location": "Plats för vindbyprognos (karta)",
+                    "precipitation_enabled": "Aktivera lokala nederbördsprognoser",
+                    "precipitation_location": "Plats för nederbördsprognos (karta)",
+                    "analysis_enabled": "Aktivera lokal väderanalys",
+                    "analysis_location": "Plats för väderanalys (karta)"
                 },
                 "data_description": {
                     "mode": "Välj att filtrera på administrativt distrikt eller på koordinat + radie.",
@@ -70,18 +94,43 @@
                     "thunder_probability_enabled": "Visa åsksannolikhet vid nästa prognostid och prognosen för kommande 48 timmar. Detta är en lokal prognos, inte en utfärdad varning.",
                     "thunder_probability_location": "Välj eller bekräfta den exakta prognospunkten. Det första förslaget är Home Assistants hemposition. Punkten är oberoende av varningsfiltret och brandriskens position; varningsradien används inte. Punkter utanför SMHI:s prognosområde kan sakna data.",
                     "winter_enabled": "Visa nederbördstyp, sannolikhet för frusen nederbörd och temperatur vid nästa prognostid, med prognos för kommande 48 timmar. Det är lokala prognoser, inte snödjup, väglag eller utfärdade varningar.",
-                    "winter_location": "Välj eller bekräfta den exakta prognospunkten. Förslaget är din hemposition i Home Assistant. Punkten är oberoende av varningsfiltret och övriga lokala prognoser; varningsradien gäller inte. Punkter utanför SMHI:s prognosområde kan sakna data."
+                    "winter_location": "Välj eller bekräfta den exakta prognospunkten. Förslaget är din hemposition i Home Assistant. Punkten är oberoende av varningsfiltret och övriga lokala prognoser; varningsradien gäller inte. Punkter utanför SMHI:s prognosområde kan sakna data.",
+                    "snow_depth_enabled": "Lägg till snödjup uppmätt vid en station som du väljer i nästa steg. Stationen kan ligga långt från hemmet och beskriver inte snödjupet på din exakta plats. Ingen station väljs automatiskt.",
+                    "snow_depth_change_station": "Öppna stationslistan för att ändra eller bekräfta station och observationskälla. Övriga inställningar kan sparas utan att markera rutan.",
+                    "wind_enabled": "Visa vindbyprognos för nästa prognostid och högsta prognosvärdet under kommande 24 timmar. Detta är en lokal prognos, inte en utfärdad varning.",
+                    "precipitation_enabled": "Visa sannolikhet för minst 0,1 mm nederbörd och förväntad nederbördsmängd för SMHI:s hela angivna tidsintervall. Intervallen kan vara olika långa.",
+                    "analysis_enabled": "Visa SMHI:s analyserade nederbörd och snömängdsförändring under den senaste analyserade timmen, med upp till 24 timmars historik. Detta är analys av passerat väder, inte uppmätt snödjup eller en prognos.",
+                    "wind_location": "Välj eller bekräfta platsen. Denna punkt är oberoende av varningsfiltret och övriga datakällor. Utanför SMHI:s täckningsområde kan data saknas.",
+                    "precipitation_location": "Välj eller bekräfta platsen. Denna punkt är oberoende av varningsfiltret och övriga datakällor. Utanför SMHI:s täckningsområde kan data saknas.",
+                    "analysis_location": "Välj eller bekräfta platsen. Denna punkt är oberoende av varningsfiltret och övriga datakällor. Utanför SMHI:s täckningsområde kan data saknas."
                 }
             },
             "reload_notice": {
                 "title": "SMHI Alert",
                 "description": "Installationen är klar. Klicka på skicka för att slutföra. Efter installationen, ladda om webbläsarsidan en gång så att dashboard-kortet blir tillgängligt direkt."
+            },
+            "snow_depth": {
+                "title": "Mätstation för snödjup",
+                "description": "Välj station och källa. Stationerna är sorterade efter avstånd från din hemposition i Home Assistant. Källa 8 rapporterar en dygnsmätning kl. 06 UTC. Källa 52 beskrivs som minutvärden i SMHI:s katalog, men enskilda stationer kan rapportera mer sällan. Sensorn visar alltid faktisk mättid och källa. Bara den valda stationen kontrolleras för aktuell data innan inställningarna sparas. Välj en annan station eller källa om den valda saknar en aktuell observation.",
+                "data": {
+                    "snow_depth_station": "Station och observationskälla"
+                },
+                "data_description": {
+                    "snow_depth_station": "Alternativen visar stationsnamn, avstånd från hemmet och SMHI:s beskrivning av källan. Bekräfta ditt val; närmaste station väljs aldrig automatiskt."
+                }
             }
         },
         "error": {
             "invalid_fire_risk_location": "Välj en brandriskposition med giltig latitud och longitud.",
             "invalid_thunder_probability_location": "Välj en position för åsksannolikhet med giltig latitud och longitud.",
-            "invalid_winter_location": "Välj en plats för vinterprognos med giltig latitud och longitud."
+            "invalid_winter_location": "Välj en plats för vinterprognos med giltig latitud och longitud.",
+            "cannot_connect_snow_depth": "Snödjupsstationerna kunde inte hämtas från SMHI. Skicka igen för att försöka på nytt, eller avbryt för att behålla nuvarande inställningar.",
+            "no_snow_depth_stations": "SMHI returnerade inga aktiva snödjupsstationer. Skicka igen för att försöka på nytt, eller avbryt för att behålla nuvarande inställningar.",
+            "invalid_snow_depth_station": "Välj station och källa i listan med tillgängliga alternativ.",
+            "snow_depth_station_unavailable": "Källan saknar en användbar aktuell observation eller kunde inte kontrolleras. Välj en annan station eller källa, eller försök igen. Dina nuvarande inställningar har inte ändrats.",
+            "invalid_wind_location": "Välj en plats med giltig latitud och longitud.",
+            "invalid_precipitation_location": "Välj en plats med giltig latitud och longitud.",
+            "invalid_analysis_location": "Välj en plats med giltig latitud och longitud."
         },
         "abort": {
             "entry_not_found": "Konfigurationsposten hittades inte.",
@@ -109,7 +158,15 @@
                     "thunder_probability_enabled": "Aktivera lokal åsksannolikhet",
                     "thunder_probability_location": "Åsksannolikhetens position (karta)",
                     "winter_enabled": "Aktivera lokala vinterprognoser",
-                    "winter_location": "Plats för vinterprognos (karta)"
+                    "winter_location": "Plats för vinterprognos (karta)",
+                    "snow_depth_enabled": "Aktivera observerat snödjup",
+                    "snow_depth_change_station": "Välj en annan snödjupsstation",
+                    "wind_enabled": "Aktivera lokala vindbyprognoser",
+                    "wind_location": "Plats för vindbyprognos (karta)",
+                    "precipitation_enabled": "Aktivera lokala nederbördsprognoser",
+                    "precipitation_location": "Plats för nederbördsprognos (karta)",
+                    "analysis_enabled": "Aktivera lokal väderanalys",
+                    "analysis_location": "Plats för väderanalys (karta)"
                 },
                 "data_description": {
                     "mode": "Välj att filtrera på administrativt distrikt eller på koordinat + radie.",
@@ -124,14 +181,39 @@
                     "thunder_probability_enabled": "Visa åsksannolikhet vid nästa prognostid och prognosen för kommande 48 timmar. Detta är en lokal prognos, inte en utfärdad varning.",
                     "thunder_probability_location": "Välj eller bekräfta den exakta prognospunkten. Det första förslaget är Home Assistants hemposition. Punkten är oberoende av varningsfiltret och brandriskens position; varningsradien används inte. Punkter utanför SMHI:s prognosområde kan sakna data.",
                     "winter_enabled": "Visa nederbördstyp, sannolikhet för frusen nederbörd och temperatur vid nästa prognostid, med prognos för kommande 48 timmar. Det är lokala prognoser, inte snödjup, väglag eller utfärdade varningar.",
-                    "winter_location": "Välj eller bekräfta den exakta prognospunkten. Förslaget är din hemposition i Home Assistant. Punkten är oberoende av varningsfiltret och övriga lokala prognoser; varningsradien gäller inte. Punkter utanför SMHI:s prognosområde kan sakna data."
+                    "winter_location": "Välj eller bekräfta den exakta prognospunkten. Förslaget är din hemposition i Home Assistant. Punkten är oberoende av varningsfiltret och övriga lokala prognoser; varningsradien gäller inte. Punkter utanför SMHI:s prognosområde kan sakna data.",
+                    "snow_depth_enabled": "Lägg till snödjup uppmätt vid en station som du väljer i nästa steg. Stationen kan ligga långt från hemmet och beskriver inte snödjupet på din exakta plats. Ingen station väljs automatiskt.",
+                    "snow_depth_change_station": "Öppna stationslistan för att ändra eller bekräfta station och observationskälla. Övriga inställningar kan sparas utan att markera rutan.",
+                    "wind_enabled": "Visa vindbyprognos för nästa prognostid och högsta prognosvärdet under kommande 24 timmar. Detta är en lokal prognos, inte en utfärdad varning.",
+                    "precipitation_enabled": "Visa sannolikhet för minst 0,1 mm nederbörd och förväntad nederbördsmängd för SMHI:s hela angivna tidsintervall. Intervallen kan vara olika långa.",
+                    "analysis_enabled": "Visa SMHI:s analyserade nederbörd och snömängdsförändring under den senaste analyserade timmen, med upp till 24 timmars historik. Detta är analys av passerat väder, inte uppmätt snödjup eller en prognos.",
+                    "wind_location": "Välj eller bekräfta platsen. Denna punkt är oberoende av varningsfiltret och övriga datakällor. Utanför SMHI:s täckningsområde kan data saknas.",
+                    "precipitation_location": "Välj eller bekräfta platsen. Denna punkt är oberoende av varningsfiltret och övriga datakällor. Utanför SMHI:s täckningsområde kan data saknas.",
+                    "analysis_location": "Välj eller bekräfta platsen. Denna punkt är oberoende av varningsfiltret och övriga datakällor. Utanför SMHI:s täckningsområde kan data saknas."
+                }
+            },
+            "snow_depth": {
+                "title": "Mätstation för snödjup",
+                "description": "Välj station och källa. Stationerna är sorterade efter avstånd från din hemposition i Home Assistant. Källa 8 rapporterar en dygnsmätning kl. 06 UTC. Källa 52 beskrivs som minutvärden i SMHI:s katalog, men enskilda stationer kan rapportera mer sällan. Sensorn visar alltid faktisk mättid och källa. Bara den valda stationen kontrolleras för aktuell data innan inställningarna sparas. Välj en annan station eller källa om den valda saknar en aktuell observation.",
+                "data": {
+                    "snow_depth_station": "Station och observationskälla"
+                },
+                "data_description": {
+                    "snow_depth_station": "Alternativen visar stationsnamn, avstånd från hemmet och SMHI:s beskrivning av källan. Bekräfta ditt val; närmaste station väljs aldrig automatiskt."
                 }
             }
         },
         "error": {
             "invalid_fire_risk_location": "Välj en brandriskposition med giltig latitud och longitud.",
             "invalid_thunder_probability_location": "Välj en position för åsksannolikhet med giltig latitud och longitud.",
-            "invalid_winter_location": "Välj en plats för vinterprognos med giltig latitud och longitud."
+            "invalid_winter_location": "Välj en plats för vinterprognos med giltig latitud och longitud.",
+            "cannot_connect_snow_depth": "Snödjupsstationerna kunde inte hämtas från SMHI. Skicka igen för att försöka på nytt, eller avbryt för att behålla nuvarande inställningar.",
+            "no_snow_depth_stations": "SMHI returnerade inga aktiva snödjupsstationer. Skicka igen för att försöka på nytt, eller avbryt för att behålla nuvarande inställningar.",
+            "invalid_snow_depth_station": "Välj station och källa i listan med tillgängliga alternativ.",
+            "snow_depth_station_unavailable": "Källan saknar en användbar aktuell observation eller kunde inte kontrolleras. Välj en annan station eller källa, eller försök igen. Dina nuvarande inställningar har inte ändrats.",
+            "invalid_wind_location": "Välj en plats med giltig latitud och longitud.",
+            "invalid_precipitation_location": "Välj en plats med giltig latitud och longitud.",
+            "invalid_analysis_location": "Välj en plats med giltig latitud och longitud."
         }
     },
     "entity": {
@@ -195,6 +277,27 @@
             },
             "winter_temperature": {
                 "name": "Temperatur vinterprognos"
+            },
+            "snow_depth": {
+                "name": "Observerat snödjup"
+            },
+            "wind_gust": {
+                "name": "Vindbyprognos"
+            },
+            "wind_gust_max_24h": {
+                "name": "Högsta vindbyprognos, kommande 24 timmar"
+            },
+            "precipitation_probability": {
+                "name": "Nederbördssannolikhet"
+            },
+            "precipitation_amount": {
+                "name": "Prognostiserad nederbördsmängd"
+            },
+            "analysed_precipitation": {
+                "name": "Analyserad nederbörd, senaste timmen"
+            },
+            "analysed_snow_change": {
+                "name": "Analyserad snömängdsförändring, senaste timmen"
             }
         }
     }
